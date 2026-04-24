@@ -1,0 +1,42 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    volumes:
+      - ${PNG_ROOT_DIR}:${PNG_ROOT_DIR}:ro
+      - sqlite-data:/var/lib/png-browser
+      - thumbnail-cache:${THUMBNAIL_CACHE_DIR}
+    networks:
+      - png-browser
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    networks:
+      - png-browser
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./deployment/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - png-browser
+
+volumes:
+  sqlite-data:
+  thumbnail-cache:
+
+networks:
+  png-browser:
+    driver: bridge
+
