@@ -45,7 +45,6 @@ class ThumbnailService:
                 preview.thumbnail((bounded_size, bounded_size), Image.Resampling.LANCZOS)
                 preview.save(thumbnail_path, format="PNG", optimize=True)
         except (UnidentifiedImageError, OSError) as exc:
-            raise ThumbnailError("Thumbnail could not be generated for this PNG file.") from exc
+            raise ThumbnailError("이 PNG 파일의 썸네일을 생성할 수 없습니다.") from exc
 
         return thumbnail_path
-

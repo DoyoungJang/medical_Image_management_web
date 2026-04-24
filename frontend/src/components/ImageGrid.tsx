@@ -1,6 +1,7 @@
 import type { ImageSummary } from "../types/api";
 import { formatBytes, formatDate } from "../utils/format";
 import { imageThumbnailUrl } from "../utils/api";
+import { statusLabel } from "../utils/labels";
 
 interface ImageGridProps {
   items: ImageSummary[];
@@ -12,7 +13,7 @@ interface ImageGridProps {
 
 export function ImageGrid({ items, loading, selectedImageId, thumbnailSize, onSelect }: ImageGridProps) {
   if (loading) {
-    return <div className="panel empty-state">이미지 목록을 불러오는 중입니다...</div>;
+    return <div className="panel empty-state">이미지 목록을 불러오는 중입니다.</div>;
   }
 
   if (!items.length) {
@@ -33,7 +34,7 @@ export function ImageGrid({ items, loading, selectedImageId, thumbnailSize, onSe
           <div className="image-card-body">
             <div className="image-card-header">
               <strong>{item.filename}</strong>
-              <span className={`status-pill ${item.status}`}>{item.status}</span>
+              <span className={`status-pill ${item.status}`}>{statusLabel(item.status)}</span>
             </div>
             <p>{item.relative_path}</p>
             <p>
@@ -53,4 +54,3 @@ export function ImageGrid({ items, loading, selectedImageId, thumbnailSize, onSe
     </div>
   );
 }
-

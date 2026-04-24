@@ -74,7 +74,7 @@ class MetadataExtractor:
                 image.load()
                 image_format = (image.format or "").upper()
                 if image_format and image_format != "PNG":
-                    return self._unsupported(base, "Unsupported image format.")
+                    return self._unsupported(base, "지원하지 않는 이미지 형식입니다.")
 
                 dpi_x, dpi_y = self._extract_dpi(image.info.get("dpi"))
                 has_alpha = self._has_alpha(image)

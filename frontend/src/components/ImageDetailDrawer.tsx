@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { BreadcrumbItem, ImageDetail } from "../types/api";
 import { formatBytes, formatDate } from "../utils/format";
 import { imageFileUrl } from "../utils/api";
+import { statusLabel } from "../utils/labels";
 import { MetadataTable } from "./MetadataTable";
 
 interface ImageDetailDrawerProps {
@@ -43,7 +44,7 @@ export function ImageDetailDrawer({
           닫기
         </button>
       </div>
-      {loading ? <div className="empty-state">상세 정보를 불러오는 중입니다...</div> : null}
+      {loading ? <div className="empty-state">상세 정보를 불러오는 중입니다.</div> : null}
       {!loading && image ? (
         <>
           <div className="preview-toolbar">
@@ -71,6 +72,10 @@ export function ImageDetailDrawer({
             />
           </div>
           <div className="detail-facts">
+            <div>
+              <span>상태</span>
+              <strong>{statusLabel(image.status)}</strong>
+            </div>
             <div>
               <span>상대 경로</span>
               <strong>{image.relative_path}</strong>
@@ -106,8 +111,7 @@ export function ImageDetailDrawer({
           <MetadataTable metadata={image.metadata} />
         </>
       ) : null}
-      {!loading && !image ? <div className="empty-state">왼쪽 목록에서 PNG를 선택해 주세요.</div> : null}
+      {!loading && !image ? <div className="empty-state">목록에서 PNG를 선택해 주세요.</div> : null}
     </aside>
   );
 }
-

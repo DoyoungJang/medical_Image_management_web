@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "PNG Browser"
+    app_name: str = "PNG 탐색기"
     environment: Literal["development", "test", "production"] = "development"
     api_prefix: str = "/api"
 
@@ -60,4 +60,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

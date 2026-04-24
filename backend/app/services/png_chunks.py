@@ -46,30 +46,30 @@ class PNGChunkParser:
         with path.open("rb") as file_handle:
             signature = file_handle.read(len(PNG_SIGNATURE))
             if signature != PNG_SIGNATURE:
-                raise PNGChunkParserError("Invalid PNG signature.")
+                raise PNGChunkParserError("PNG 시그니처가 올바르지 않습니다.")
 
             while True:
                 raw_length = file_handle.read(4)
                 if len(raw_length) == 0:
                     break
                 if len(raw_length) != 4:
-                    raise PNGChunkParserError("Incomplete PNG chunk length.")
+                    raise PNGChunkParserError("PNG 청크 길이 정보가 불완전합니다.")
 
                 (chunk_length,) = struct.unpack(">I", raw_length)
                 if chunk_length > MAX_CHUNK_LENGTH:
-                    raise PNGChunkParserError("Chunk length exceeds safety limit.")
+                    raise PNGChunkParserError("PNG 청크 길이가 안전 제한을 초과했습니다.")
 
                 chunk_type = file_handle.read(4)
                 if len(chunk_type) != 4:
-                    raise PNGChunkParserError("Incomplete PNG chunk type.")
+                    raise PNGChunkParserError("PNG 청크 타입 정보가 불완전합니다.")
 
                 chunk_data = file_handle.read(chunk_length)
                 if len(chunk_data) != chunk_length:
-                    raise PNGChunkParserError("Incomplete PNG chunk data.")
+                    raise PNGChunkParserError("PNG 청크 데이터가 불완전합니다.")
 
                 crc = file_handle.read(CHUNK_CRC_SIZE)
                 if len(crc) != CHUNK_CRC_SIZE:
-                    raise PNGChunkParserError("Incomplete PNG chunk CRC.")
+                    raise PNGChunkParserError("PNG 청크 CRC 정보가 불완전합니다.")
 
                 chunk_name = chunk_type.decode("ascii", errors="replace")
                 if chunk_name == "IHDR":
@@ -96,14 +96,14 @@ class PNGChunkParser:
 
     def _parse_ihdr(self, chunk_data: bytes, info: PNGChunkInfo) -> None:
         if len(chunk_data) != 13:
-            raise PNGChunkParserError("IHDR chunk length is invalid.")
+            raise PNGChunkParserError("IHDR 청크 길이가 올바르지 않습니다.")
         _, _, bit_depth, color_type, _, _, _ = struct.unpack(">IIBBBBB", chunk_data)
         info.bit_depth = bit_depth
         info.color_type = COLOR_TYPE_MAP.get(color_type, f"unknown({color_type})")
 
     def _parse_gamma(self, chunk_data: bytes) -> float:
         if len(chunk_data) != 4:
-            raise PNGChunkParserError("gAMA chunk length is invalid.")
+            raise PNGChunkParserError("gAMA 청크 길이가 올바르지 않습니다.")
         (gamma_value,) = struct.unpack(">I", chunk_data)
         return gamma_value / 100000
 

@@ -8,6 +8,7 @@ import type {
   SessionResponse,
   TreeResponse,
 } from "../types/api";
+import { translateServerMessage } from "./labels";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
@@ -32,7 +33,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    const message = payload?.detail ?? `요청 실패 (${response.status})`;
+    const message = translateServerMessage(payload?.detail ?? `요청 실패 (${response.status})`);
     throw new ApiError(message, response.status);
   }
 

@@ -1,4 +1,5 @@
 import type { SearchFilters } from "../types/api";
+import { STATUS_LABELS } from "../utils/labels";
 
 interface SearchBarProps {
   filters: SearchFilters;
@@ -94,10 +95,13 @@ export function SearchBar({ filters, metadataKeys, onChange, onSubmit, onReset }
           상태
           <select value={filters.status} onChange={(event) => onChange({ status: event.target.value, page: 1 })}>
             <option value="">전체</option>
-            <option value="ok">정상</option>
-            <option value="corrupted">손상</option>
-            <option value="unreadable">읽기 불가</option>
-            <option value="unsupported">지원 안 함</option>
+            {Object.entries(STATUS_LABELS)
+              .filter(([value]) => value !== "missing")
+              .map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
           </select>
         </label>
         <label>

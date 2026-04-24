@@ -18,7 +18,7 @@ export function AuthGate({ loading, error, onLogin }: AuthGateProps) {
   return (
     <div className="auth-shell">
       <div className="auth-panel">
-        <p className="eyebrow">Internal PNG Browser</p>
+        <p className="eyebrow">로그인</p>
         <h1>사내 PNG 탐색 도구</h1>
         <p className="muted">
           서버에 저장된 PNG 파일을 폴더 트리, 썸네일, 메타데이터, 검색 조건으로 안전하게 탐색합니다.
@@ -39,11 +39,10 @@ export function AuthGate({ loading, error, onLogin }: AuthGateProps) {
           </label>
           {error ? <div className="error-box">{error}</div> : null}
           <button type="submit" disabled={loading}>
-            {loading ? "로그인 중..." : "로그인"}
+            {loading ? "로그인 중" : "로그인"}
           </button>
         </form>
       </div>
     </div>
   );
 }
-

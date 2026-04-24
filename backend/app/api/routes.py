@@ -163,7 +163,7 @@ def get_image_detail(
 ) -> ImageDetailResponse:
     image = container.search_service.get_image(db, image_id)
     if image is None or image.missing_at is not None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="이미지를 찾을 수 없습니다.")
 
     metadata = container.metadata_extractor.deserialize_metadata(image.metadata_json)
     absolute_path = None
@@ -194,7 +194,7 @@ def get_thumbnail(
 ):
     image = container.search_service.get_image(db, image_id)
     if image is None or image.missing_at is not None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="이미지를 찾을 수 없습니다.")
     try:
         thumbnail_path = container.thumbnail_service.get_thumbnail_path(image, size)
     except ThumbnailError as exc:
@@ -210,11 +210,11 @@ def get_original_file(
 ):
     image = container.search_service.get_image(db, image_id)
     if image is None or image.missing_at is not None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="이미지를 찾을 수 없습니다.")
     try:
         file_path = container.file_system_service.resolve_relative_path(image.relative_path, strict=True)
     except (FileNotFoundError, PathValidationError) as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image file is unavailable.") from exc
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="이미지 파일을 사용할 수 없습니다.") from exc
     return FileResponse(file_path, media_type="image/png", filename=image.filename)
 
 
@@ -282,7 +282,7 @@ def trigger_rescan(container: AppContainer = Depends(get_container)) -> dict[str
     if not accepted:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A scan is already running or was triggered too recently.",
+            detail="이미 스캔 중이거나 너무 빠르게 재요청했습니다.",
         )
     return {"status": "accepted"}
 
@@ -300,4 +300,3 @@ api_router.include_router(public_router)
 api_router.include_router(auth_router)
 api_router.include_router(protected_router)
 api_router.include_router(admin_router)
-

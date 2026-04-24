@@ -28,9 +28,9 @@ class FileSystemService:
     def ensure_roots(self) -> None:
         self.thumbnail_cache_path.mkdir(parents=True, exist_ok=True)
         if not self.root_path.exists():
-            raise FileNotFoundError(f"PNG_ROOT_DIR does not exist: {self.root_path}")
+            raise FileNotFoundError(f"PNG_ROOT_DIR가 존재하지 않습니다: {self.root_path}")
         if not self.root_path.is_dir():
-            raise NotADirectoryError(f"PNG_ROOT_DIR is not a directory: {self.root_path}")
+            raise NotADirectoryError(f"PNG_ROOT_DIR가 디렉터리가 아닙니다: {self.root_path}")
         self.root_path = self.root_path.resolve(strict=True)
         self.thumbnail_cache_path = self.thumbnail_cache_path.resolve(strict=True)
 
@@ -42,17 +42,17 @@ class FileSystemService:
             return ""
         parsed = PurePosixPath(cleaned)
         if parsed.is_absolute():
-            raise PathValidationError("Absolute paths are not allowed.")
+            raise PathValidationError("절대 경로는 사용할 수 없습니다.")
 
         parts = [part for part in parsed.parts if part not in {"", "."}]
         if any(part == ".." for part in parts):
-            raise PathValidationError("Path traversal is not allowed.")
+            raise PathValidationError("상위 경로 이동은 허용되지 않습니다.")
         if any(":" in part for part in parts):
-            raise PathValidationError("Drive-qualified paths are not allowed.")
+            raise PathValidationError("드라이브가 포함된 경로는 사용할 수 없습니다.")
 
         normalized = "/".join(parts)
         if normalized.startswith("../") or normalized == "..":
-            raise PathValidationError("Path traversal is not allowed.")
+            raise PathValidationError("상위 경로 이동은 허용되지 않습니다.")
         return normalized
 
     def resolve_relative_path(self, relative_path: str, *, strict: bool = True) -> Path:
@@ -67,9 +67,9 @@ class FileSystemService:
             resolved = candidate.resolve(strict=False)
 
         if not self._is_within_root(resolved):
-            raise PathValidationError("Requested path escapes PNG_ROOT_DIR.")
+            raise PathValidationError("요청한 경로가 PNG_ROOT_DIR 밖으로 벗어납니다.")
         if not self.settings.allow_symlinks and self._contains_symlink(candidate):
-            raise PathValidationError("Symlink traversal is disabled.")
+            raise PathValidationError("심볼릭 링크 탐색은 비활성화되어 있습니다.")
         return resolved
 
     def _contains_symlink(self, candidate: Path) -> bool:
@@ -142,4 +142,3 @@ class FileSystemService:
                 absolute_path=entry_path,
                 stat_result=stat_result,
             )
-

@@ -1,4 +1,5 @@
 import type { FacetCount, IndexStatusResponse } from "../types/api";
+import { statusLabel } from "../utils/labels";
 
 interface AdminPanelProps {
   indexStatus: IndexStatusResponse | null;
@@ -17,12 +18,12 @@ export function AdminPanel({ indexStatus, facets, loading, rescanning, onRescan 
     <div className="panel admin-panel">
       <div className="panel-header">
         <h2>인덱스 상태</h2>
-        <button onClick={onRescan} disabled={rescanning}>
-          {rescanning ? "재스캔 요청 중..." : "재스캔"}
+        <button onClick={onRescan} disabled={rescanning || indexStatus?.scanning}>
+          {rescanning ? "재스캔 요청 중" : "재스캔"}
         </button>
       </div>
       {loading || !indexStatus ? (
-        <p className="muted">인덱스 상태를 불러오는 중입니다...</p>
+        <p className="muted">인덱스 상태를 불러오는 중입니다.</p>
       ) : (
         <>
           <div className="stat-row">
@@ -46,27 +47,7 @@ export function AdminPanel({ indexStatus, facets, loading, rescanning, onRescan 
             <div className="chip-wrap">
               {(facets?.status_counts ?? []).map((item) => (
                 <span key={item.key} className="chip">
-                  {item.key}: {item.count}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="facet-section">
-            <h3>자주 쓰는 메타데이터 키</h3>
-            <div className="chip-wrap">
-              {(facets?.common_metadata_keys ?? []).map((item) => (
-                <span key={item.key} className="chip">
-                  {item.key}: {item.count}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="facet-section">
-            <h3>주요 디렉터리</h3>
-            <div className="chip-wrap">
-              {(facets?.directory_counts ?? []).map((item) => (
-                <span key={item.key} className="chip">
-                  {item.key || "루트"}: {item.count}
+                  {statusLabel(item.key)}: {item.count}
                 </span>
               ))}
             </div>

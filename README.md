@@ -1,4 +1,4 @@
-# PNG Browser
+# PNG 탐색기
 
 사내 Ubuntu 서버에 저장된 PNG 파일을 안전하게 탐색하기 위한 내부 웹 애플리케이션입니다.
 
@@ -11,26 +11,26 @@
 - 관리자 재스캔과 인덱스 상태 확인
 - 경로 순회 방지, symlink escape 방지, read-only 원본 보호
 
-## 1. Stack
+## 1. 기술 스택
 
 - Backend: Python 3.11+, FastAPI, SQLAlchemy, SQLite
 - Frontend: React + TypeScript + Vite
 - Image handling: Pillow
 - Optional watcher: watchdog
-- Deployment: Docker Compose + Nginx reverse proxy
+- 배포: Docker Compose + Nginx reverse proxy
 - Tests: pytest, Vitest
 
-## 2. Main Features
+## 2. 주요 기능
 
-- Folder tree browser rooted at `PNG_ROOT_DIR`
-- Relative-path-only exposure to the frontend
-- Lazy thumbnail generation and caching in `THUMBNAIL_CACHE_DIR`
-- Safe original file streaming through backend endpoints
-- SQLite metadata index with optional FTS5 full-text search
-- Structured filters by path, size, dimensions, alpha, status, metadata key/value
-- App-level authentication for protected and admin endpoints
+- `PNG_ROOT_DIR`를 루트로 하는 폴더 트리 탐색
+- 프런트엔드에는 상대 경로만 노출
+- `THUMBNAIL_CACHE_DIR`에 썸네일 지연 생성 및 캐시
+- 백엔드 안전 엔드포인트를 통한 원본 이미지 스트리밍
+- SQLite 메타데이터 인덱스와 선택적 FTS5 전문 검색
+- 경로, 크기, 해상도, 알파 채널, 상태, 메타데이터 키/값 필터
+- 보호 API와 관리자 API에 앱 로그인 적용
 
-## 3. Project Structure
+## 3. 프로젝트 구조
 
 ```text
 .
@@ -65,11 +65,11 @@
 └─ README.md
 ```
 
-## 4. Environment Variables
+## 4. 환경 변수
 
 `.env.example`를 복사해서 `.env`를 만들고 값을 채워 주세요.
 
-| Variable | Description |
+| 변수 | 설명 |
 |---|---|
 | `APP_PORT` | 외부에서 접속할 포트 |
 | `PNG_ROOT_DIR` | 원본 PNG 루트 디렉터리 |
@@ -105,7 +105,7 @@ AUTH_SECRET_KEY=change-this-secret-for-production
 CORS_ORIGINS=http://localhost:5173,http://<SERVER_IP>:8080
 ```
 
-## 5. Password Hash
+## 5. 비밀번호 해시 생성
 
 ### Ubuntu / Linux / macOS
 
@@ -125,11 +125,11 @@ print(bcrypt.hashpw(b"change-me", bcrypt.gensalt()).decode())
 '@ | python -
 ```
 
-## 6. Windows Installation and Usage
+## 6. Windows 설치 및 사용 방법
 
 이 섹션은 Windows PC에서 로컬 개발 또는 사내 테스트용으로 실행하는 방법입니다.
 
-### 6.1 Prerequisites
+### 6.1 사전 준비
 
 다음을 먼저 설치해 주세요.
 
@@ -146,14 +146,14 @@ npm --version
 git --version
 ```
 
-### 6.2 Clone Repository
+### 6.2 저장소 받기
 
 ```powershell
 git clone <YOUR_REPOSITORY_URL> medical_Image_management_web
 cd medical_Image_management_web
 ```
 
-### 6.3 Prepare PNG Source Directory
+### 6.3 PNG 원본 디렉터리 준비
 
 예를 들어 아래처럼 PNG 루트를 준비합니다.
 
@@ -164,7 +164,7 @@ New-Item -ItemType Directory -Force C:\png-browser-cache
 
 원본 PNG 파일은 `C:\data\company-png` 아래에 넣습니다.
 
-### 6.4 Backend Setup on Windows
+### 6.4 Windows 백엔드 실행
 
 ```powershell
 cd backend
@@ -202,7 +202,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 Invoke-RestMethod http://localhost:8000/api/health
 ```
 
-### 6.5 Frontend Setup on Windows
+### 6.5 Windows 프런트엔드 실행
 
 새 터미널에서 실행:
 
@@ -218,7 +218,7 @@ npm run dev -- --host 0.0.0.0 --port 5173
 http://localhost:5173
 ```
 
-### 6.6 How to Use on Windows
+### 6.6 Windows 사용 방법
 
 1. 로그인 화면에서 `AUTH_USERNAME` 계정으로 로그인합니다.
 2. 좌측 폴더 트리에서 원하는 폴더를 선택합니다.
@@ -226,7 +226,7 @@ http://localhost:5173
 4. 썸네일 카드를 클릭하면 우측 상세 패널에서 큰 미리보기와 전체 메타데이터를 볼 수 있습니다.
 5. 우측 관리자 패널에서 인덱스 상태를 확인하고 `재스캔`을 눌러 다시 스캔할 수 있습니다.
 
-### 6.7 Run Tests on Windows
+### 6.7 Windows 테스트 실행
 
 백엔드 테스트:
 
@@ -244,11 +244,11 @@ npm run test
 npm run build
 ```
 
-## 7. Ubuntu Installation and Usage
+## 7. Ubuntu 설치 및 사용 방법
 
 이 섹션은 Ubuntu 서버 또는 Ubuntu 개발 머신에서 실행하는 방법입니다.
 
-### 7.1 Prerequisites
+### 7.1 사전 준비
 
 ```bash
 sudo apt-get update
@@ -266,14 +266,14 @@ git --version
 
 Node.js 최신 LTS가 필요하다면 사내 표준 저장소 또는 NodeSource 방식으로 20.x를 설치하세요.
 
-### 7.2 Clone Repository
+### 7.2 저장소 받기
 
 ```bash
 git clone <YOUR_REPOSITORY_URL> png-browser
 cd png-browser
 ```
 
-### 7.3 Prepare Directories
+### 7.3 디렉터리 준비
 
 ```bash
 sudo mkdir -p /data/company-png
@@ -283,7 +283,7 @@ sudo chown -R $USER:$USER /data/company-png /var/cache/png-browser-thumbnails
 
 원본 PNG 파일은 `/data/company-png` 아래에 복사합니다.
 
-### 7.4 Backend Setup on Ubuntu
+### 7.4 Ubuntu 백엔드 실행
 
 ```bash
 cd backend
@@ -328,7 +328,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 curl http://localhost:8000/api/health
 ```
 
-### 7.5 Frontend Setup on Ubuntu
+### 7.5 Ubuntu 프런트엔드 실행
 
 새 터미널에서 실행:
 
@@ -344,7 +344,7 @@ npm run dev -- --host 0.0.0.0 --port 5173
 http://localhost:5173
 ```
 
-### 7.6 How to Use on Ubuntu
+### 7.6 Ubuntu 사용 방법
 
 1. 브라우저에서 로그인합니다.
 2. 자동 스캔이 켜져 있으면 시작 시 인덱싱이 진행됩니다.
@@ -353,7 +353,7 @@ http://localhost:5173
 5. 조건 필터로 해상도, 파일 크기, alpha 여부, 상태를 조합합니다.
 6. 상세 패널에서 원본 이미지 열기와 메타데이터 검토를 진행합니다.
 
-### 7.7 Run Tests on Ubuntu
+### 7.7 Ubuntu 테스트 실행
 
 백엔드 테스트:
 
@@ -371,11 +371,11 @@ npm run test
 npm run build
 ```
 
-## 8. Docker Compose Deployment on Ubuntu
+## 8. Ubuntu Docker Compose 배포
 
 운영 서버에서는 Docker Compose 방식이 가장 간단합니다.
 
-### 8.1 Install Docker
+### 8.1 Docker 설치
 
 ```bash
 sudo apt-get update
@@ -383,7 +383,7 @@ sudo apt-get install -y docker.io docker-compose-plugin ufw
 sudo systemctl enable --now docker
 ```
 
-### 8.2 Prepare Project
+### 8.2 프로젝트 준비
 
 ```bash
 git clone <YOUR_REPOSITORY_URL> png-browser
@@ -397,11 +397,11 @@ cp .env.example .env
 - `THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails`
 - `DATABASE_URL=sqlite:////var/lib/png-browser/app.db`
 - `AUTH_USERNAME=admin`
-- `AUTH_PASSWORD_HASH=<real bcrypt hash>`
-- `AUTH_SECRET_KEY=<long random string>`
+- `AUTH_PASSWORD_HASH=<실제 bcrypt 해시>`
+- `AUTH_SECRET_KEY=<충분히 긴 랜덤 문자열>`
 - `APP_PORT=8080`
 
-### 8.3 Start Services
+### 8.3 서비스 시작
 
 ```bash
 docker compose build
@@ -415,7 +415,7 @@ docker compose ps
 http://<SERVER_IP>:8080
 ```
 
-### 8.4 UFW / Firewall
+### 8.4 UFW 방화벽
 
 ```bash
 sudo ufw allow 22/tcp
@@ -426,9 +426,9 @@ sudo ufw status
 
 포트를 변경했다면 `8080` 대신 `APP_PORT` 값을 허용하세요.
 
-## 9. Daily Usage Guide
+## 9. 일상 사용 가이드
 
-### 9.1 Initial Scan
+### 9.1 초기 스캔
 
 자동 스캔:
 
@@ -444,7 +444,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 
 실제 보호 환경에서는 로그인 세션이 필요합니다.
 
-### 9.2 Search Examples
+### 9.2 검색 예시
 
 - 파일명 검색: `report`
 - 경로 검색: `team-a/project-x`
@@ -452,14 +452,14 @@ curl -X POST http://localhost:8000/api/admin/rescan
 - 메타데이터 키 필터: `textual_metadata.Author`
 - 상태 필터: `corrupted`
 
-### 9.3 Safe Access Rules
+### 9.3 안전 접근 규칙
 
 - 프런트엔드는 절대 경로를 직접 보내지 않습니다.
 - 파일 접근은 `image_id` 또는 검증된 상대 경로만 사용합니다.
 - `../`, 절대 경로, encoded traversal, symlink escape는 차단됩니다.
 - 원본 PNG는 수정하지 않고 읽기 전용으로 취급합니다.
 
-## 10. API Summary
+## 10. API 요약
 
 - `GET /api/health`
 - `GET /api/config/public`
@@ -476,7 +476,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 
-## 11. Architecture Notes
+## 11. 아키텍처 메모
 
 - `FileSystemService`: 루트 경계 검증, 상대 경로 정규화, 안전한 PNG 탐색
 - `MetadataExtractor`: Pillow 기반 메타데이터 추출
@@ -486,7 +486,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 - `ThumbnailService`: 썸네일 생성과 캐시
 - `AuthService`: bcrypt 기반 인증과 세션 쿠키
 
-## 12. Database Backup
+## 12. 데이터베이스 백업
 
 컨테이너 내부 SQLite 파일 백업:
 
@@ -500,7 +500,7 @@ docker compose exec backend sh -lc 'cp /var/lib/png-browser/app.db /var/lib/png-
 docker compose cp backend:/var/lib/png-browser/app.db ./app.db.backup
 ```
 
-## 13. Troubleshooting
+## 13. 문제 해결
 
 - `PNG_ROOT_DIR does not exist`
   - 지정한 디렉터리가 실제로 존재하는지 확인하세요.
@@ -517,13 +517,13 @@ docker compose cp backend:/var/lib/png-browser/app.db ./app.db.backup
 - Ubuntu에서 `Permission denied`
   - PNG 루트, 썸네일 캐시, DB 디렉터리 권한을 확인하세요.
 
-## 14. Known Limitations
+## 14. 알려진 제한사항
 
 - 디렉터리 필터는 현재 선택한 폴더 이하 subtree 기준입니다.
 - 메타데이터 값 비교는 MVP 기준으로 `contains` 중심입니다.
 - 매우 큰 데이터셋에서는 PostgreSQL 마이그레이션을 권장합니다.
 
-## 15. PostgreSQL Migration Note
+## 15. PostgreSQL 마이그레이션 메모
 
 대용량 환경에서는 SQLite 대신 PostgreSQL 전환을 권장합니다.
 

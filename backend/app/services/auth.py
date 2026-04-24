@@ -25,15 +25,15 @@ class AuthService:
         if not self.settings.auth_enabled:
             return AuthenticatedUser(username=username)
         if username != self.settings.auth_username:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="사용자명 또는 비밀번호가 올바르지 않습니다.")
         if not self.settings.auth_password_hash:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="AUTH_PASSWORD_HASH is not configured.")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="AUTH_PASSWORD_HASH가 설정되지 않았습니다.")
         try:
             matches = bcrypt.checkpw(password.encode("utf-8"), self.settings.auth_password_hash.encode("utf-8"))
         except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Invalid password hash configuration.") from exc
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="비밀번호 해시 설정이 올바르지 않습니다.") from exc
         if not matches:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="사용자명 또는 비밀번호가 올바르지 않습니다.")
         return AuthenticatedUser(username=username)
 
     def create_session_token(self, username: str) -> str:
@@ -84,7 +84,7 @@ class AuthService:
     def require_authenticated_user(self, request: Request) -> AuthenticatedUser:
         user = self.get_authenticated_user(request)
         if user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인이 필요합니다.")
         return user
 
     def set_session_cookie(self, response: Response, username: str) -> None:
@@ -101,4 +101,3 @@ class AuthService:
 
     def clear_session_cookie(self, response: Response) -> None:
         response.delete_cookie(key=self.settings.auth_cookie_name, path="/")
-

@@ -1,6 +1,6 @@
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 
-import { AdminPanel } from "./components/AdminPanel";
+import { AdminPage } from "./components/AdminPage";
 import { AuthGate } from "./components/AuthGate";
 import { FolderTree } from "./components/FolderTree";
 import { ImageDetailDrawer } from "./components/ImageDetailDrawer";
@@ -30,6 +30,7 @@ import {
   logout,
   triggerRescan,
 } from "./utils/api";
+import { SORT_LABELS } from "./utils/labels";
 
 const DEFAULT_FILTERS: SearchFilters = {
   q: "",
@@ -51,6 +52,12 @@ const DEFAULT_FILTERS: SearchFilters = {
   page: 1,
   pageSize: 24,
 };
+
+type ViewMode = "browser" | "admin";
+
+function viewFromPath(): ViewMode {
+  return window.location.pathname.startsWith("/admin") ? "admin" : "browser";
+}
 
 function buildSearchParams(filters: SearchFilters): URLSearchParams {
   const params = new URLSearchParams();
@@ -90,6 +97,7 @@ export default function App() {
   const [initializing, setInitializing] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>(viewFromPath);
 
   const [treeCache, setTreeCache] = useState<Record<string, TreeResponse | undefined>>({});
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set([""]));
@@ -116,6 +124,18 @@ export default function App() {
   const breadcrumbs = activeTree?.breadcrumbs ?? [{ name: "루트", path: "" }];
 
   const canBrowse = config !== null && (config.auth_enabled ? session?.authenticated : true);
+
+  const navigate = (nextView: ViewMode) => {
+    setViewMode(nextView);
+    const nextPath = nextView === "admin" ? "/admin" : "/";
+    window.history.pushState({}, "", nextPath);
+  };
+
+  useEffect(() => {
+    const handlePopState = () => setViewMode(viewFromPath());
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -178,20 +198,36 @@ export default function App() {
       try {
         const [metadataKeysResponse, facetsResponse, indexStatusResponse] = await Promise.all([
           fetchMetadataKeys(),
-          fetchFacets(buildSearchParams(debouncedFilters)),
+          fetchFacets(new URLSearchParams()),
           fetchIndexStatus(),
         ]);
         setMetadataKeys(metadataKeysResponse.keys);
         setFacets(facetsResponse);
         setIndexStatus(indexStatusResponse);
       } catch (sidebarError) {
-        setError(sidebarError instanceof Error ? sidebarError.message : "보조 정보를 불러오지 못했습니다.");
+        setError(sidebarError instanceof Error ? sidebarError.message : "관리자 정보를 불러오지 못했습니다.");
       } finally {
         setAdminLoading(false);
       }
     };
     void loadSidebarData();
-  }, [canBrowse, debouncedFilters]);
+  }, [canBrowse]);
+
+  useEffect(() => {
+    if (!canBrowse) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void fetchIndexStatus()
+        .then(setIndexStatus)
+        .catch(() => {
+          // Status polling is best-effort; user-triggered actions still surface errors.
+        });
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [canBrowse]);
 
   useEffect(() => {
     if (!selectedImageId || !canBrowse) {
@@ -222,8 +258,13 @@ export default function App() {
   useEffect(() => {
     if (selectedSummary?.directory !== undefined && selectedPath !== selectedSummary.directory) {
       setSelectedPath(selectedSummary.directory);
+      if (!treeCache[selectedSummary.directory]) {
+        void loadTreeNode(selectedSummary.directory).catch((treeError) => {
+          setError(treeError instanceof Error ? treeError.message : "폴더 정보를 불러오지 못했습니다.");
+        });
+      }
     }
-  }, [selectedPath, selectedSummary]);
+  }, [selectedPath, selectedSummary, treeCache]);
 
   const handleLogin = async (username: string, password: string) => {
     setAuthLoading(true);
@@ -241,6 +282,8 @@ export default function App() {
   const handleLogout = async () => {
     await logout();
     setSession({ authenticated: false });
+    setSelectedImageId(null);
+    navigate("browser");
   };
 
   const loadTreeNode = async (path: string) => {
@@ -291,7 +334,7 @@ export default function App() {
   };
 
   if (initializing) {
-    return <div className="app-loading">초기 설정을 불러오는 중입니다...</div>;
+    return <div className="app-loading">초기 설정을 불러오는 중입니다.</div>;
   }
 
   if (!config) {
@@ -306,11 +349,19 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">Internal Tool</p>
+          <p className="eyebrow">사내 도구</p>
           <h1>{config.app_name}</h1>
-          <p className="muted">PNG 폴더 탐색, 메타데이터 인덱싱, 조건 검색을 하나의 화면에서 처리합니다.</p>
+          <p className="muted">PNG 폴더 탐색, 메타데이터 인덱싱, 조건 검색을 안전하게 처리합니다.</p>
         </div>
         <div className="header-actions">
+          <div className="view-tabs" role="tablist" aria-label="주요 화면">
+            <button className={viewMode === "browser" ? "active" : "secondary"} onClick={() => navigate("browser")}>
+              탐색
+            </button>
+            <button className={viewMode === "admin" ? "active" : "secondary"} onClick={() => navigate("admin")}>
+              관리자
+            </button>
+          </div>
           <span className="chip">현재 폴더: {selectedPath || "루트"}</span>
           <button className="secondary" onClick={() => void handleLogout()}>
             로그아웃
@@ -320,78 +371,88 @@ export default function App() {
 
       {error ? <div className="global-error">{error}</div> : null}
 
-      <div className="app-layout">
-        <aside className="left-rail">
-          <FolderTree
-            treeCache={treeCache}
-            selectedPath={selectedPath}
-            expandedPaths={expandedPaths}
-            onSelect={handleFolderSelect}
-            onToggle={handleToggleFolder}
-          />
-          <AdminPanel indexStatus={indexStatus} facets={facets} loading={adminLoading} rescanning={rescanning} onRescan={handleRescan} />
-        </aside>
+      {viewMode === "browser" ? (
+        <div className="app-layout">
+          <aside className="left-rail">
+            <FolderTree
+              treeCache={treeCache}
+              selectedPath={selectedPath}
+              expandedPaths={expandedPaths}
+              onSelect={handleFolderSelect}
+              onToggle={handleToggleFolder}
+            />
+          </aside>
 
-        <main className="main-content">
-          <SearchBar
-            filters={filters}
-            metadataKeys={metadataKeys}
-            onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
-            onSubmit={() => setFilters((current) => ({ ...current, page: 1 }))}
-            onReset={() => {
-              setFilters({ ...DEFAULT_FILTERS, directory: selectedPath });
-            }}
-          />
+          <main className="main-content">
+            <SearchBar
+              filters={filters}
+              metadataKeys={metadataKeys}
+              onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
+              onSubmit={() => setFilters((current) => ({ ...current, page: 1 }))}
+              onReset={() => {
+                setFilters({ ...DEFAULT_FILTERS, directory: selectedPath });
+              }}
+            />
 
-          <div className="content-header">
-            <div>
-              <h2>검색 결과</h2>
-              <p className="muted">
-                총 {images?.total ?? 0}개 / 페이지 {images?.page ?? 1}
-              </p>
+            <div className="content-header">
+              <div>
+                <h2>검색 결과</h2>
+                <p className="muted">
+                  총 {images?.total ?? 0}개 / 페이지 {images?.page ?? 1} / 정렬: {SORT_LABELS[filters.sort]}
+                </p>
+              </div>
+              <div className="pagination">
+                <button
+                  className="secondary"
+                  disabled={(filters.page ?? 1) <= 1}
+                  onClick={() => setFilters((current) => ({ ...current, page: Math.max(1, current.page - 1) }))}
+                >
+                  이전
+                </button>
+                <button
+                  className="secondary"
+                  disabled={!images || images.items.length < filters.pageSize}
+                  onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}
+                >
+                  다음
+                </button>
+              </div>
             </div>
-            <div className="pagination">
-              <button
-                className="secondary"
-                disabled={(filters.page ?? 1) <= 1}
-                onClick={() => setFilters((current) => ({ ...current, page: Math.max(1, current.page - 1) }))}
-              >
-                이전
-              </button>
-              <button
-                className="secondary"
-                disabled={!images || images.items.length < filters.pageSize}
-                onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}
-              >
-                다음
-              </button>
-            </div>
-          </div>
 
-          <ImageGrid
-            items={images?.items ?? []}
-            loading={imageLoading}
-            selectedImageId={selectedImageId}
-            thumbnailSize={config.thumbnail_default_size}
-            onSelect={(imageId) => {
-              setSelectedImageId(imageId);
-              setZoom(1);
-              setFitToScreen(true);
-            }}
+            <ImageGrid
+              items={images?.items ?? []}
+              loading={imageLoading}
+              selectedImageId={selectedImageId}
+              thumbnailSize={config.thumbnail_default_size}
+              onSelect={(imageId) => {
+                setSelectedImageId(imageId);
+                setZoom(1);
+                setFitToScreen(true);
+              }}
+            />
+          </main>
+
+          <ImageDetailDrawer
+            image={selectedImage}
+            loading={detailLoading}
+            breadcrumbs={breadcrumbs}
+            zoom={zoom}
+            fitToScreen={fitToScreen}
+            onClose={() => setSelectedImageId(null)}
+            onZoomChange={setZoom}
+            onToggleFit={() => setFitToScreen((current) => !current)}
           />
-        </main>
-
-        <ImageDetailDrawer
-          image={selectedImage}
-          loading={detailLoading}
-          breadcrumbs={breadcrumbs}
-          zoom={zoom}
-          fitToScreen={fitToScreen}
-          onClose={() => setSelectedImageId(null)}
-          onZoomChange={setZoom}
-          onToggleFit={() => setFitToScreen((current) => !current)}
+        </div>
+      ) : (
+        <AdminPage
+          config={config}
+          indexStatus={indexStatus}
+          facets={facets}
+          loading={adminLoading}
+          rescanning={rescanning}
+          onRescan={handleRescan}
         />
-      </div>
+      )}
     </div>
   );
 }

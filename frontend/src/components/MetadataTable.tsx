@@ -10,7 +10,7 @@ export function MetadataTable({ metadata }: MetadataTableProps) {
   return (
     <div className="metadata-table">
       <div className="metadata-table-head">
-        <span>키</span>
+        <span>항목</span>
         <span>값</span>
       </div>
       {rows.map((row) => (
@@ -22,4 +22,3 @@ export function MetadataTable({ metadata }: MetadataTableProps) {
     </div>
   );
 }
-
