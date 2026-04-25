@@ -3,6 +3,21 @@ from __future__ import annotations
 from pathlib import Path
 
 
+def test_root_endpoint_explains_backend_server(client) -> None:
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "백엔드가 실행 중입니다" in response.text
+    assert "/api/health" in response.text
+    assert "/docs" in response.text
+
+
+def test_favicon_endpoint_is_quiet(client) -> None:
+    response = client.get("/favicon.ico")
+
+    assert response.status_code == 204
+
+
 def test_authentication_and_admin_protection(client) -> None:
     unauthorized = client.get("/api/admin/index-status")
     assert unauthorized.status_code == 401

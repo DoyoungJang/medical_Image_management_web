@@ -1,143 +1,12 @@
-# PNG 탐색기
+# PNG 탐색기 설치 가이드
 
-사내 Ubuntu 서버에 저장된 PNG 파일을 안전하게 탐색하기 위한 내부 웹 애플리케이션입니다.
+사내 서버 또는 개발 PC에서 PNG 탐색기를 설치하고 실행하는 방법입니다. 실제 화면 사용법은 [USAGE.md](./USAGE.md)를 참고하세요.
 
-이 프로젝트는 다음 기능을 제공합니다.
+## 1. Windows 설치
 
-- `PNG_ROOT_DIR` 아래의 폴더 트리 탐색
-- PNG 썸네일과 원본 미리보기
-- PNG 메타데이터 추출 및 검색
-- 텍스트 메타데이터(`tEXt`, `zTXt`, `iTXt`) 인덱싱
-- 관리자 재스캔과 인덱스 상태 확인
-- 경로 순회 방지, symlink escape 방지, read-only 원본 보호
+### 1.1 사전 준비
 
-## 1. 기술 스택
-
-- Backend: Python 3.11+, FastAPI, SQLAlchemy, SQLite
-- Frontend: React + TypeScript + Vite
-- Image handling: Pillow
-- Optional watcher: watchdog
-- 배포: Docker Compose + Nginx reverse proxy
-- Tests: pytest, Vitest
-
-## 2. 주요 기능
-
-- `PNG_ROOT_DIR`를 루트로 하는 폴더 트리 탐색
-- 프런트엔드에는 상대 경로만 노출
-- `THUMBNAIL_CACHE_DIR`에 썸네일 지연 생성 및 캐시
-- 백엔드 안전 엔드포인트를 통한 원본 이미지 스트리밍
-- SQLite 메타데이터 인덱스와 선택적 FTS5 전문 검색
-- 경로, 크기, 해상도, 알파 채널, 상태, 메타데이터 키/값 필터
-- 보호 API와 관리자 API에 앱 로그인 적용
-
-## 3. 프로젝트 구조
-
-```text
-.
-├─ backend/
-│  ├─ app/
-│  │  ├─ api/
-│  │  ├─ core/
-│  │  ├─ services/
-│  │  ├─ container.py
-│  │  ├─ db.py
-│  │  ├─ dependencies.py
-│  │  ├─ main.py
-│  │  ├─ models.py
-│  │  └─ schemas.py
-│  ├─ tests/
-│  ├─ Dockerfile
-│  └─ pyproject.toml
-├─ frontend/
-│  ├─ src/
-│  │  ├─ components/
-│  │  ├─ hooks/
-│  │  ├─ types/
-│  │  └─ utils/
-│  ├─ Dockerfile
-│  ├─ nginx.conf
-│  └─ package.json
-├─ deployment/
-│  └─ nginx/
-│     └─ default.conf
-├─ .env.example
-├─ docker-compose.yml
-└─ README.md
-```
-
-## 4. 환경 변수
-
-`.env.example`를 복사해서 `.env`를 만들고 값을 채워 주세요.
-
-| 변수 | 설명 |
-|---|---|
-| `APP_PORT` | 외부에서 접속할 포트 |
-| `PNG_ROOT_DIR` | 원본 PNG 루트 디렉터리 |
-| `THUMBNAIL_CACHE_DIR` | 썸네일 캐시 디렉터리 |
-| `DATABASE_URL` | SQLite 데이터베이스 경로 |
-| `AUTO_SCAN_ON_STARTUP` | 서버 시작 시 자동 스캔 여부 |
-| `ALLOW_SYMLINKS` | symlink 추적 허용 여부, 기본 `false` |
-| `PUBLIC_SHOW_ABSOLUTE_PATH` | UI에 절대 경로 표시 여부 |
-| `ENABLE_WATCHDOG` | watchdog 기반 자동 감시 여부 |
-| `USE_FTS5` | SQLite FTS5 사용 여부 |
-| `AUTH_ENABLED` | 앱 로그인 사용 여부 |
-| `AUTH_USERNAME` | 로그인 사용자명 |
-| `AUTH_PASSWORD_HASH` | bcrypt 비밀번호 해시 |
-| `AUTH_SECRET_KEY` | 세션 서명 키 |
-| `CORS_ORIGINS` | 허용할 Origin 목록 |
-
-예시:
-
-```env
-APP_PORT=8080
-PNG_ROOT_DIR=/data/company-png
-THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails
-DATABASE_URL=sqlite:////var/lib/png-browser/app.db
-AUTO_SCAN_ON_STARTUP=true
-ALLOW_SYMLINKS=false
-PUBLIC_SHOW_ABSOLUTE_PATH=false
-ENABLE_WATCHDOG=false
-USE_FTS5=true
-AUTH_ENABLED=true
-AUTH_USERNAME=admin
-AUTH_PASSWORD_HASH=$2b$12$replace.this.with.a.real.bcrypt.hash
-AUTH_SECRET_KEY=change-this-secret-for-production
-CORS_ORIGINS=http://localhost:5173,http://<SERVER_IP>:8080
-```
-
-## 5. 비밀번호 해시 생성
-
-### Ubuntu / Linux / macOS
-
-```bash
-python3 - <<'PY'
-import bcrypt
-print(bcrypt.hashpw(b"change-me", bcrypt.gensalt()).decode())
-PY
-```
-
-### Windows PowerShell
-
-```powershell
-@'
-import bcrypt
-print(bcrypt.hashpw(b"change-me", bcrypt.gensalt()).decode())
-'@ | python -
-```
-
-## 6. Windows 설치 및 사용 방법
-
-이 섹션은 Windows PC에서 로컬 개발 또는 사내 테스트용으로 실행하는 방법입니다.
-
-### 6.1 사전 준비
-
-다음을 먼저 설치해 주세요.
-
-- Python 3.11+
-- Node.js 20+
-- Git
-
-권장 확인 명령:
+Windows PowerShell에서 아래 명령으로 필수 도구가 설치되어 있는지 확인합니다.
 
 ```powershell
 python --version
@@ -146,35 +15,67 @@ npm --version
 git --version
 ```
 
-### 6.2 저장소 받기
+필요 버전은 다음과 같습니다.
+
+- Python 3.11 이상
+- Node.js 20 이상
+- Git
+
+`node` 또는 `npm` 명령이 인식되지 않으면 Node.js LTS를 먼저 설치합니다.
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS -e
+```
+
+설치가 끝나면 PowerShell을 완전히 닫고 새 PowerShell을 연 뒤 다시 확인합니다.
+
+```powershell
+node --version
+npm --version
+```
+
+`winget`을 사용할 수 없는 PC에서는 Node.js 공식 설치 파일의 LTS 버전을 설치한 뒤 새 PowerShell을 열어 확인합니다.
+
+### 1.2 저장소 받기
 
 ```powershell
 git clone <YOUR_REPOSITORY_URL> medical_Image_management_web
 cd medical_Image_management_web
 ```
 
-### 6.3 PNG 원본 디렉터리 준비
-
-예를 들어 아래처럼 PNG 루트를 준비합니다.
+### 1.3 PNG 원본 디렉터리 준비
 
 ```powershell
 New-Item -ItemType Directory -Force C:\data\company-png
 New-Item -ItemType Directory -Force C:\png-browser-cache
 ```
 
-원본 PNG 파일은 `C:\data\company-png` 아래에 넣습니다.
+원본 PNG 파일은 `C:\data\company-png` 아래에 넣습니다. 애플리케이션은 이 디렉터리 밖의 파일을 탐색하지 않습니다.
 
-### 6.4 Windows 백엔드 실행
+### 1.4 백엔드 설치
 
 ```powershell
-cd backend
 python -m venv .venv
 .\.venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install -e .[dev]
+python -m pip install -r requirements-dev.txt
 ```
 
-환경 변수 설정:
+위 명령은 저장소 루트에서 실행합니다. 루트의 `requirements-dev.txt`가 백엔드 개발 의존성을 함께 설치합니다.
+
+`python -m pip install -e .[dev]`는 저장소 루트에서 실행하지 않습니다. 루트 설치는 위의 `requirements-dev.txt` 방식을 사용하세요.
+
+editable install이 꼭 필요하면 백엔드 디렉터리에서 아래처럼 따옴표를 붙여 실행하세요.
+
+```powershell
+cd backend
+python -m pip install -e ".[dev]"
+cd ..
+```
+
+### 1.5 Windows 환경 변수 설정
+
+아래 값은 현재 PowerShell 창에만 적용됩니다.
 
 ```powershell
 $env:PNG_ROOT_DIR="C:\data\company-png"
@@ -185,14 +86,16 @@ $env:ALLOW_SYMLINKS="false"
 $env:PUBLIC_SHOW_ABSOLUTE_PATH="false"
 $env:AUTH_ENABLED="true"
 $env:AUTH_USERNAME="admin"
-$env:AUTH_PASSWORD_HASH="<bcrypt_hash>"
+$env:AUTH_PASSWORD="admin"
+$env:AUTH_PASSWORD_HASH=""
 $env:AUTH_SECRET_KEY="change-this-secret"
 $env:CORS_ORIGINS="http://localhost:5173"
 ```
 
-서버 실행:
+### 1.6 Windows 백엔드 실행
 
 ```powershell
+cd backend
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -202,9 +105,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 Invoke-RestMethod http://localhost:8000/api/health
 ```
 
-### 6.5 Windows 프런트엔드 실행
+### 1.7 Windows 프런트엔드 실행
 
-새 터미널에서 실행:
+새 PowerShell 창에서 실행합니다.
 
 ```powershell
 cd frontend
@@ -212,50 +115,22 @@ npm install
 npm run dev -- --host 0.0.0.0 --port 5173
 ```
 
-브라우저 접속:
+접속 주소:
 
 ```text
 http://localhost:5173
 ```
 
-### 6.6 Windows 사용 방법
+## 2. Ubuntu 설치
 
-1. 로그인 화면에서 `AUTH_USERNAME` 계정으로 로그인합니다.
-2. 좌측 폴더 트리에서 원하는 폴더를 선택합니다.
-3. 가운데 검색 영역에서 파일명, 경로, 메타데이터를 검색합니다.
-4. 썸네일 카드를 클릭하면 우측 상세 패널에서 큰 미리보기와 전체 메타데이터를 볼 수 있습니다.
-5. 우측 관리자 패널에서 인덱스 상태를 확인하고 `재스캔`을 눌러 다시 스캔할 수 있습니다.
-
-### 6.7 Windows 테스트 실행
-
-백엔드 테스트:
-
-```powershell
-cd backend
-.\.venv\Scripts\activate
-pytest
-```
-
-프런트엔드 테스트:
-
-```powershell
-cd frontend
-npm run test
-npm run build
-```
-
-## 7. Ubuntu 설치 및 사용 방법
-
-이 섹션은 Ubuntu 서버 또는 Ubuntu 개발 머신에서 실행하는 방법입니다.
-
-### 7.1 사전 준비
+### 2.1 사전 준비
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y python3 python3-venv python3-pip nodejs npm git
 ```
 
-버전 확인:
+버전을 확인합니다.
 
 ```bash
 python3 --version
@@ -264,36 +139,46 @@ npm --version
 git --version
 ```
 
-Node.js 최신 LTS가 필요하다면 사내 표준 저장소 또는 NodeSource 방식으로 20.x를 설치하세요.
+Node.js 20 이상이 필요합니다. Ubuntu 기본 저장소의 Node.js 버전이 낮으면 사내 표준 저장소 또는 NodeSource 방식으로 Node.js 20 이상을 설치하세요.
 
-### 7.2 저장소 받기
+### 2.2 저장소 받기
 
 ```bash
 git clone <YOUR_REPOSITORY_URL> png-browser
 cd png-browser
 ```
 
-### 7.3 디렉터리 준비
+### 2.3 PNG 원본 및 캐시 디렉터리 준비
 
 ```bash
 sudo mkdir -p /data/company-png
 sudo mkdir -p /var/cache/png-browser-thumbnails
-sudo chown -R $USER:$USER /data/company-png /var/cache/png-browser-thumbnails
+sudo mkdir -p /var/lib/png-browser
+sudo chown -R $USER:$USER /data/company-png /var/cache/png-browser-thumbnails /var/lib/png-browser
 ```
 
 원본 PNG 파일은 `/data/company-png` 아래에 복사합니다.
 
-### 7.4 Ubuntu 백엔드 실행
+### 2.4 백엔드 설치
 
 ```bash
-cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e .[dev]
+python -m pip install -r requirements-dev.txt
 ```
 
-환경 변수 설정:
+위 명령은 저장소 루트에서 실행합니다. 루트의 `requirements-dev.txt`가 백엔드 개발 의존성을 함께 설치합니다.
+
+editable install이 필요한 경우에는 백엔드 디렉터리에서 아래 명령을 사용하세요.
+
+```bash
+cd backend
+python -m pip install -e ".[dev]"
+cd ..
+```
+
+### 2.5 Ubuntu 환경 변수 설정
 
 ```bash
 export PNG_ROOT_DIR=/data/company-png
@@ -304,21 +189,16 @@ export ALLOW_SYMLINKS=false
 export PUBLIC_SHOW_ABSOLUTE_PATH=false
 export AUTH_ENABLED=true
 export AUTH_USERNAME=admin
-export AUTH_PASSWORD_HASH='<bcrypt_hash>'
+export AUTH_PASSWORD=admin
+export AUTH_PASSWORD_HASH=
 export AUTH_SECRET_KEY='change-this-secret'
 export CORS_ORIGINS=http://localhost:5173,http://<SERVER_IP>:8080
 ```
 
-SQLite 위치 준비:
+### 2.6 Ubuntu 백엔드 실행
 
 ```bash
-sudo mkdir -p /var/lib/png-browser
-sudo chown -R $USER:$USER /var/lib/png-browser
-```
-
-서버 실행:
-
-```bash
+cd backend
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -328,9 +208,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 curl http://localhost:8000/api/health
 ```
 
-### 7.5 Ubuntu 프런트엔드 실행
+### 2.7 Ubuntu 프런트엔드 실행
 
-새 터미널에서 실행:
+새 터미널에서 실행합니다.
 
 ```bash
 cd frontend
@@ -338,44 +218,17 @@ npm install
 npm run dev -- --host 0.0.0.0 --port 5173
 ```
 
-브라우저 접속:
+접속 주소:
 
 ```text
 http://localhost:5173
 ```
 
-### 7.6 Ubuntu 사용 방법
+## 3. Ubuntu Docker Compose 배포
 
-1. 브라우저에서 로그인합니다.
-2. 자동 스캔이 켜져 있으면 시작 시 인덱싱이 진행됩니다.
-3. 자동 스캔이 꺼져 있으면 관리자 패널의 `재스캔` 버튼으로 수동 스캔합니다.
-4. 검색창에 파일명, 상대 경로, 메타데이터 값을 입력해 결과를 찾습니다.
-5. 조건 필터로 해상도, 파일 크기, alpha 여부, 상태를 조합합니다.
-6. 상세 패널에서 원본 이미지 열기와 메타데이터 검토를 진행합니다.
+운영 서버에서는 Docker Compose 방식을 권장합니다.
 
-### 7.7 Ubuntu 테스트 실행
-
-백엔드 테스트:
-
-```bash
-cd backend
-source .venv/bin/activate
-pytest
-```
-
-프런트엔드 테스트:
-
-```bash
-cd frontend
-npm run test
-npm run build
-```
-
-## 8. Ubuntu Docker Compose 배포
-
-운영 서버에서는 Docker Compose 방식이 가장 간단합니다.
-
-### 8.1 Docker 설치
+### 3.1 Docker 설치
 
 ```bash
 sudo apt-get update
@@ -383,7 +236,7 @@ sudo apt-get install -y docker.io docker-compose-plugin ufw
 sudo systemctl enable --now docker
 ```
 
-### 8.2 프로젝트 준비
+### 3.2 프로젝트 준비
 
 ```bash
 git clone <YOUR_REPOSITORY_URL> png-browser
@@ -391,17 +244,25 @@ cd png-browser
 cp .env.example .env
 ```
 
-`.env`를 열어서 다음 값을 실제 서버 기준으로 수정합니다.
+`.env`에서 최소한 아래 값을 실제 환경에 맞게 수정합니다.
 
-- `PNG_ROOT_DIR=/data/company-png`
-- `THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails`
-- `DATABASE_URL=sqlite:////var/lib/png-browser/app.db`
-- `AUTH_USERNAME=admin`
-- `AUTH_PASSWORD_HASH=<실제 bcrypt 해시>`
-- `AUTH_SECRET_KEY=<충분히 긴 랜덤 문자열>`
-- `APP_PORT=8080`
+```env
+APP_PORT=8080
+PNG_ROOT_DIR=/data/company-png
+THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails
+DATABASE_URL=sqlite:////var/lib/png-browser/app.db
+AUTO_SCAN_ON_STARTUP=true
+ALLOW_SYMLINKS=false
+PUBLIC_SHOW_ABSOLUTE_PATH=false
+AUTH_ENABLED=true
+AUTH_USERNAME=admin
+AUTH_PASSWORD=admin
+AUTH_PASSWORD_HASH=
+AUTH_SECRET_KEY=<long-random-secret>
+CORS_ORIGINS=http://<SERVER_IP>:8080
+```
 
-### 8.3 서비스 시작
+### 3.3 서비스 시작
 
 ```bash
 docker compose build
@@ -409,13 +270,13 @@ docker compose up -d
 docker compose ps
 ```
 
-브라우저 접속:
+접속 주소:
 
 ```text
 http://<SERVER_IP>:8080
 ```
 
-### 8.4 UFW 방화벽
+### 3.4 방화벽 설정
 
 ```bash
 sudo ufw allow 22/tcp
@@ -424,110 +285,130 @@ sudo ufw enable
 sudo ufw status
 ```
 
-포트를 변경했다면 `8080` 대신 `APP_PORT` 값을 허용하세요.
+`APP_PORT`를 변경했다면 `8080` 대신 해당 포트를 허용하세요.
 
-## 9. 일상 사용 가이드
+## 4. 비밀번호 설정
 
-### 9.1 초기 스캔
+로컬 개발 기본 계정은 아래처럼 설정하면 됩니다.
 
-자동 스캔:
-
-```bash
-AUTO_SCAN_ON_STARTUP=true
+```env
+AUTH_USERNAME=admin
+AUTH_PASSWORD=admin
+AUTH_PASSWORD_HASH=
 ```
 
-수동 재스캔:
+운영 서버에서는 `admin / admin`을 그대로 사용하지 말고, `AUTH_PASSWORD`를 더 강한 비밀번호로 바꾸거나 `AUTH_PASSWORD_HASH`를 사용하세요. `AUTH_PASSWORD_HASH`를 사용할 때는 평문 비밀번호 대신 bcrypt 해시를 넣습니다.
 
-```bash
-curl -X POST http://localhost:8000/api/admin/rescan
+### Windows PowerShell
+
+백엔드 가상환경을 활성화하고 실행합니다.
+
+```powershell
+@'
+import bcrypt
+print(bcrypt.hashpw(b"change-me", bcrypt.gensalt()).decode())
+'@ | python -
 ```
 
-실제 보호 환경에서는 로그인 세션이 필요합니다.
-
-### 9.2 검색 예시
-
-- 파일명 검색: `report`
-- 경로 검색: `team-a/project-x`
-- 메타데이터 값 검색: `scanner`
-- 메타데이터 키 필터: `textual_metadata.Author`
-- 상태 필터: `corrupted`
-
-### 9.3 안전 접근 규칙
-
-- 프런트엔드는 절대 경로를 직접 보내지 않습니다.
-- 파일 접근은 `image_id` 또는 검증된 상대 경로만 사용합니다.
-- `../`, 절대 경로, encoded traversal, symlink escape는 차단됩니다.
-- 원본 PNG는 수정하지 않고 읽기 전용으로 취급합니다.
-
-## 10. API 요약
-
-- `GET /api/health`
-- `GET /api/config/public`
-- `GET /api/tree`
-- `GET /api/images`
-- `GET /api/images/{image_id}`
-- `GET /api/images/{image_id}/thumbnail`
-- `GET /api/images/{image_id}/file`
-- `GET /api/metadata/keys`
-- `GET /api/metadata/facets`
-- `POST /api/admin/rescan`
-- `GET /api/admin/index-status`
-- `GET /api/auth/session`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-
-## 11. 아키텍처 메모
-
-- `FileSystemService`: 루트 경계 검증, 상대 경로 정규화, 안전한 PNG 탐색
-- `MetadataExtractor`: Pillow 기반 메타데이터 추출
-- `PNGChunkParser`: PNG textual chunk 안전 파싱
-- `IndexService`: 전체 스캔, 증분 재인덱싱, missing 처리
-- `SearchService`: 목록 조회, 필터, facet, FTS
-- `ThumbnailService`: 썸네일 생성과 캐시
-- `AuthService`: bcrypt 기반 인증과 세션 쿠키
-
-## 12. 데이터베이스 백업
-
-컨테이너 내부 SQLite 파일 백업:
+### Ubuntu
 
 ```bash
-docker compose exec backend sh -lc 'cp /var/lib/png-browser/app.db /var/lib/png-browser/app-$(date +%F-%H%M%S).db'
+python3 - <<'PY'
+import bcrypt
+print(bcrypt.hashpw(b"change-me", bcrypt.gensalt()).decode())
+PY
 ```
 
-호스트로 복사:
+## 5. 테스트 실행
+
+### Windows
+
+```powershell
+.\.venv\Scripts\activate
+cd backend
+pytest
+```
+
+```powershell
+cd frontend
+npm run test
+npm run build
+```
+
+### Ubuntu
 
 ```bash
-docker compose cp backend:/var/lib/png-browser/app.db ./app.db.backup
+source .venv/bin/activate
+cd backend
+pytest
 ```
 
-## 13. 문제 해결
+```bash
+cd frontend
+npm run test
+npm run build
+```
 
-- `PNG_ROOT_DIR does not exist`
-  - 지정한 디렉터리가 실제로 존재하는지 확인하세요.
-- 썸네일이 보이지 않음
-  - `THUMBNAIL_CACHE_DIR` 쓰기 권한과 PNG 읽기 권한을 확인하세요.
-- 검색 결과가 없음
-  - 초기 스캔이 완료되었는지, `재스캔`이 성공했는지 확인하세요.
-- 재스캔이 `409` 반환
-  - 이미 스캔이 진행 중이거나 너무 짧은 간격으로 요청한 상태입니다.
-- 절대 경로가 보이지 않음
-  - `PUBLIC_SHOW_ABSOLUTE_PATH=true`를 명시적으로 설정해야 합니다.
-- Windows에서 `node` 또는 `npm` 인식 안 됨
-  - Node.js 설치 후 새 PowerShell을 다시 열어 주세요.
-- Ubuntu에서 `Permission denied`
-  - PNG 루트, 썸네일 캐시, DB 디렉터리 권한을 확인하세요.
+## 6. 문제 해결
 
-## 14. 알려진 제한사항
+### `python -m pip install -e .[dev]`가 실패하는 경우
 
-- 디렉터리 필터는 현재 선택한 폴더 이하 subtree 기준입니다.
-- 메타데이터 값 비교는 MVP 기준으로 `contains` 중심입니다.
-- 매우 큰 데이터셋에서는 PostgreSQL 마이그레이션을 권장합니다.
+저장소 루트에는 `pyproject.toml`이 없으므로 editable install을 루트에서 실행하면 실패합니다. 일반 설치는 저장소 루트에서 아래 명령을 사용하세요.
 
-## 15. PostgreSQL 마이그레이션 메모
+```powershell
+python -m pip install -r requirements-dev.txt
+```
 
-대용량 환경에서는 SQLite 대신 PostgreSQL 전환을 권장합니다.
+editable install이 꼭 필요하면 백엔드 디렉터리에서 실행하세요. Windows PowerShell에서는 `.[dev]`를 따옴표로 감싸는 편이 안전합니다.
 
-- `DATABASE_URL`을 PostgreSQL DSN으로 변경
-- SQLAlchemy 모델은 대부분 그대로 재사용 가능
-- FTS는 PostgreSQL `GIN + tsvector` 또는 전용 검색 인덱스로 교체
-- 썸네일 캐시 구조는 그대로 유지 가능
+```powershell
+cd backend
+python -m pip install -e ".[dev]"
+cd ..
+```
+
+### `node` 또는 `npm` 명령을 찾을 수 없는 경우
+
+Node.js가 설치되지 않았거나 PATH가 아직 갱신되지 않은 상태입니다. Windows에서는 아래 명령으로 Node.js LTS를 설치할 수 있습니다.
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS -e
+```
+
+설치 후 기존 PowerShell을 닫고 새 PowerShell을 열어 다시 확인하세요.
+
+```powershell
+node --version
+npm --version
+```
+
+그래도 인식되지 않으면 Windows를 재부팅하거나, Node.js 설치 경로가 시스템 `Path` 환경 변수에 포함되어 있는지 확인합니다.
+
+### `PNG_ROOT_DIR가 존재하지 않습니다` 오류
+
+환경 변수에 설정한 디렉터리가 실제로 존재하는지 확인하세요.
+
+### `error parsing value for field "cors_origins"` 오류
+
+이전 버전에서 `CORS_ORIGINS`를 JSON 배열로만 해석하려고 해서 발생할 수 있었습니다. 현재 버전은 아래처럼 일반 문자열과 쉼표 구분 문자열을 모두 지원합니다.
+
+```powershell
+$env:CORS_ORIGINS="http://localhost:5173"
+```
+
+```powershell
+$env:CORS_ORIGINS="http://localhost:5173,http://192.168.0.10:8080"
+```
+
+### `Permission denied` 오류
+
+Ubuntu에서는 PNG 루트, 썸네일 캐시, SQLite DB 디렉터리 권한을 확인하세요.
+
+```bash
+sudo chown -R $USER:$USER /data/company-png /var/cache/png-browser-thumbnails /var/lib/png-browser
+```
+
+## 7. 추가 문서
+
+- 사용 방법: [USAGE.md](./USAGE.md)
+- 환경 변수 예시: [.env.example](./.env.example)

@@ -26,15 +26,19 @@ class AuthService:
             return AuthenticatedUser(username=username)
         if username != self.settings.auth_username:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="사용자명 또는 비밀번호가 올바르지 않습니다.")
-        if not self.settings.auth_password_hash:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="AUTH_PASSWORD_HASH가 설정되지 않았습니다.")
-        try:
-            matches = bcrypt.checkpw(password.encode("utf-8"), self.settings.auth_password_hash.encode("utf-8"))
-        except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="비밀번호 해시 설정이 올바르지 않습니다.") from exc
-        if not matches:
+        if not self._password_matches(password):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="사용자명 또는 비밀번호가 올바르지 않습니다.")
         return AuthenticatedUser(username=username)
+
+    def _password_matches(self, password: str) -> bool:
+        if self.settings.auth_password_hash:
+            try:
+                return bcrypt.checkpw(password.encode("utf-8"), self.settings.auth_password_hash.encode("utf-8"))
+            except ValueError as exc:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="비밀번호 해시 설정이 올바르지 않습니다.") from exc
+        if self.settings.auth_password:
+            return hmac.compare_digest(password, self.settings.auth_password)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="AUTH_PASSWORD 또는 AUTH_PASSWORD_HASH가 설정되지 않았습니다.")
 
     def create_session_token(self, username: str) -> str:
         expires_at = datetime.now(tz=timezone.utc) + timedelta(hours=self.settings.auth_session_ttl_hours)
