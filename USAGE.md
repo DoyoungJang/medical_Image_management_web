@@ -1,6 +1,6 @@
-# PNG 탐색기 사용 방법
+# 이미지 탐색기 사용 방법
 
-이 문서는 설치가 끝난 뒤 실제로 PNG 탐색기를 사용하는 방법을 설명합니다. 설치는 [README.md](./README.md)를 참고하세요.
+이 문서는 설치가 끝난 뒤 실제로 이미지 탐색기를 사용하는 방법을 설명합니다. PNG, JPG, JPEG, BMP 파일을 지원합니다. 설치는 [README.md](./README.md)를 참고하세요.
 
 ## 1. 접속과 로그인
 
@@ -27,9 +27,11 @@ http://<SERVER_IP>:8080
 
 ## 2. 초기 스캔
 
-`AUTO_SCAN_ON_STARTUP=true`이면 백엔드 시작 시 자동으로 PNG 루트를 스캔합니다.
+`AUTO_SCAN_ON_STARTUP=true`이면 백엔드 시작 시 자동으로 이미지 루트를 스캔합니다.
 
-`PERIODIC_SCAN_INTERVAL_SECONDS=300`이면 백엔드가 실행 중인 동안 5분마다 자동 재스캔합니다. 새 PNG를 복사해 둔 뒤 기다리면 폴더 트리와 검색 결과에 반영됩니다.
+`PERIODIC_SCAN_INTERVAL_SECONDS=300`이면 백엔드가 실행 중인 동안 5분마다 자동 재스캔합니다. 새 이미지 파일을 복사해 둔 뒤 기다리면 폴더 트리와 검색 결과에 반영됩니다.
+
+`SUPPORTED_IMAGE_EXTENSIONS=.png,.jpg,.jpeg,.bmp` 값으로 탐색할 이미지 확장자를 조절할 수 있습니다.
 
 주기 스캔을 끄려면 값을 `0`으로 설정합니다.
 
@@ -49,7 +51,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 
 - `루트`는 `PNG_ROOT_DIR`을 의미합니다.
 - 화면에는 절대 경로가 아니라 상대 경로만 표시됩니다.
-- 폴더를 클릭하면 해당 폴더 이하 PNG가 검색 결과에 표시됩니다.
+- 폴더를 클릭하면 해당 폴더 이하 이미지가 검색 결과에 표시됩니다.
 - 심볼릭 링크 탐색은 기본적으로 비활성화되어 있습니다.
 
 ## 4. 검색과 필터
@@ -83,7 +85,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 
 ## 5. 이미지 상세 보기
 
-검색 결과의 PNG 카드를 클릭하면 오른쪽 상세 패널이 열립니다.
+검색 결과의 이미지 카드를 클릭하면 오른쪽 상세 패널이 열립니다.
 
 상세 패널에서 확인할 수 있는 정보는 다음과 같습니다.
 
@@ -130,7 +132,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 
 이 애플리케이션은 내부 시스템 기준으로 보수적으로 동작합니다.
 
-- 원본 PNG 파일은 수정하지 않습니다.
+- 원본 이미지 파일은 수정하지 않습니다.
 - 썸네일은 `THUMBNAIL_CACHE_DIR`에만 저장합니다.
 - 프런트엔드는 절대 경로를 직접 보내지 않습니다.
 - 파일 접근은 `image_id` 또는 검증된 상대 경로만 사용합니다.
@@ -153,7 +155,7 @@ docker compose cp backend:/var/lib/png-browser/app.db ./app.db.backup
 
 ## 9. PostgreSQL 전환 메모
 
-PNG가 수십만 건 이상으로 늘어나면 SQLite 대신 PostgreSQL 전환을 권장합니다.
+이미지가 수십만 건 이상으로 늘어나면 SQLite 대신 PostgreSQL 전환을 권장합니다.
 
 - `DATABASE_URL`을 PostgreSQL DSN으로 변경합니다.
 - SQLAlchemy 모델은 대부분 그대로 재사용할 수 있습니다.
@@ -168,7 +170,7 @@ PNG가 수십만 건 이상으로 늘어나면 SQLite 대신 PostgreSQL 전환�
 
 ### 썸네일이 보이지 않습니다
 
-`THUMBNAIL_CACHE_DIR` 쓰기 권한과 원본 PNG 읽기 권한을 확인하세요.
+`THUMBNAIL_CACHE_DIR` 쓰기 권한과 원본 이미지 읽기 권한을 확인하세요.
 
 ### 재스캔 요청이 실패합니다
 

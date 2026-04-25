@@ -89,7 +89,7 @@ class IndexService:
                     }
 
                     seen_paths: set[str] = set()
-                    for discovered in self.file_system_service.iter_png_files():
+                    for discovered in self.file_system_service.iter_image_files():
                         seen_paths.add(discovered.relative_path)
                         result.scanned += 1
                         current_image = existing_images.get(discovered.relative_path)

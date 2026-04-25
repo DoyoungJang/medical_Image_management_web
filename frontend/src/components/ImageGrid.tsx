@@ -17,7 +17,7 @@ export function ImageGrid({ items, loading, selectedImageId, thumbnailSize, onSe
   }
 
   if (!items.length) {
-    return <div className="panel empty-state">조건에 맞는 PNG 파일이 없습니다.</div>;
+    return <div className="panel empty-state">조건에 맞는 이미지 파일이 없습니다.</div>;
   }
 
   return (
@@ -34,7 +34,10 @@ export function ImageGrid({ items, loading, selectedImageId, thumbnailSize, onSe
           <div className="image-card-body">
             <div className="image-card-header">
               <strong>{item.filename}</strong>
-              <span className={`status-pill ${item.status}`}>{statusLabel(item.status)}</span>
+              <div className="image-card-badges">
+                <span className="format-pill">{item.extension.replace(".", "").toUpperCase()}</span>
+                <span className={`status-pill ${item.status}`}>{statusLabel(item.status)}</span>
+              </div>
             </div>
             <p>{item.relative_path}</p>
             <p>

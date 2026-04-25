@@ -1,2 +1,1 @@
-"""PNG browser backend package."""
-
+"""Image browser backend package."""

@@ -1,4 +1,3 @@
-# PNG Browser Backend
+# Image Browser Backend
 
-Backend package for the internal PNG browser.
-
+Backend package for the internal image browser.

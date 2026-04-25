@@ -12,10 +12,17 @@ from app.core.config import Settings
 from app.main import create_app
 
 
-def _create_png(path: Path, *, size: tuple[int, int], color, pnginfo: PngImagePlugin.PngInfo | None = None) -> None:
+def _create_image(path: Path, *, size: tuple[int, int], color, image_format: str, pnginfo: PngImagePlugin.PngInfo | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     image = Image.new("RGBA" if len(color) == 4 else "RGB", size, color=color)
-    image.save(path, format="PNG", pnginfo=pnginfo)
+    save_kwargs = {"pnginfo": pnginfo} if pnginfo is not None and image_format == "PNG" else {}
+    if image_format in {"JPEG", "BMP"} and image.mode == "RGBA":
+        image = image.convert("RGB")
+    image.save(path, format=image_format, **save_kwargs)
+
+
+def _create_png(path: Path, *, size: tuple[int, int], color, pnginfo: PngImagePlugin.PngInfo | None = None) -> None:
+    _create_image(path, size=size, color=color, image_format="PNG", pnginfo=pnginfo)
 
 
 def create_test_png_tree(root: Path) -> None:
@@ -28,6 +35,9 @@ def create_test_png_tree(root: Path) -> None:
     _create_png(root / "meta.png", size=(80, 80), color=(0, 255, 0), pnginfo=info)
     _create_png(root / "nested" / "alpha.png", size=(40, 50), color=(0, 0, 255, 128))
     _create_png(root / "nested" / "deeper" / "deep.png", size=(120, 60), color=(255, 255, 0))
+    _create_image(root / "photo.jpg", size=(72, 48), color=(20, 120, 230), image_format="JPEG")
+    _create_image(root / "nested" / "scan.jpeg", size=(90, 45), color=(230, 210, 30), image_format="JPEG")
+    _create_image(root / "nested" / "bitmap.bmp", size=(32, 24), color=(120, 40, 180), image_format="BMP")
     (root / "broken.png").write_bytes(b"\x89PNG\r\n\x1a\n" + zlib.compress(b"not-a-real-png"))
 
 

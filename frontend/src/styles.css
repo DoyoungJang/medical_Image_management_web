@@ -526,6 +526,14 @@ select:focus {
   overflow-wrap: anywhere;
 }
 
+.image-card-badges {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.32rem;
+}
+
 .metadata-summary,
 .chip-wrap {
   display: flex;
@@ -535,6 +543,7 @@ select:focus {
 }
 
 .chip,
+.format-pill,
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -545,6 +554,11 @@ select:focus {
   color: var(--text-soft);
   font-size: 0.8rem;
   font-weight: 800;
+}
+
+.format-pill {
+  background: var(--blue-soft);
+  color: var(--blue-strong);
 }
 
 .status-pill {

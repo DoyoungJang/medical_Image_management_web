@@ -55,6 +55,19 @@ def test_image_search_finds_filename_path_and_metadata(scanned_client) -> None:
     assert any(item["filename"] == "deep.png" for item in path_response.json()["items"])
 
 
+def test_image_search_includes_jpeg_and_bmp(scanned_client) -> None:
+    jpg_response = scanned_client.get("/api/images", params={"q": "photo"})
+    jpeg_response = scanned_client.get("/api/images", params={"q": "scan"})
+    bmp_response = scanned_client.get("/api/images", params={"q": "bitmap"})
+
+    assert jpg_response.status_code == 200
+    assert jpeg_response.status_code == 200
+    assert bmp_response.status_code == 200
+    assert any(item["filename"] == "photo.jpg" and item["extension"] == ".jpg" for item in jpg_response.json()["items"])
+    assert any(item["filename"] == "scan.jpeg" and item["extension"] == ".jpeg" for item in jpeg_response.json()["items"])
+    assert any(item["filename"] == "bitmap.bmp" and item["extension"] == ".bmp" for item in bmp_response.json()["items"])
+
+
 def test_structured_filters_and_facets(scanned_client) -> None:
     filtered = scanned_client.get("/api/images", params={"directory": "nested", "has_alpha": True})
     facets = scanned_client.get("/api/metadata/facets", params={"directory": "nested"})
@@ -80,6 +93,19 @@ def test_thumbnail_and_file_endpoints(scanned_client) -> None:
     assert thumbnail_response.headers["content-type"] == "image/png"
     assert file_response.status_code == 200
     assert file_response.headers["content-type"] == "image/png"
+
+
+def test_original_file_endpoint_uses_image_media_type(scanned_client) -> None:
+    jpg_response = scanned_client.get("/api/images", params={"q": "photo"})
+    image_id = jpg_response.json()["items"][0]["id"]
+
+    file_response = scanned_client.get(f"/api/images/{image_id}/file")
+    thumbnail_response = scanned_client.get(f"/api/images/{image_id}/thumbnail", params={"size": 128})
+
+    assert file_response.status_code == 200
+    assert file_response.headers["content-type"] == "image/jpeg"
+    assert thumbnail_response.status_code == 200
+    assert thumbnail_response.headers["content-type"] == "image/png"
 
 
 def test_corrupted_png_is_visible_with_status(scanned_client) -> None:

@@ -23,7 +23,7 @@ const SERVER_MESSAGE_LABELS: Record<string, string> = {
   "Image not found.": "이미지를 찾을 수 없습니다.",
   "Image file is unavailable.": "이미지 파일을 사용할 수 없습니다.",
   "A scan is already running or was triggered too recently.": "이미 스캔 중이거나 너무 빠르게 재요청했습니다.",
-  "Thumbnail could not be generated for this PNG file.": "이 PNG 파일의 썸네일을 생성할 수 없습니다.",
+  "Thumbnail could not be generated for this PNG file.": "이 이미지 파일의 썸네일을 생성할 수 없습니다.",
 };
 
 export function statusLabel(status: string | null | undefined): string {
@@ -46,4 +46,3 @@ export function booleanLabel(value: boolean | null | undefined): string {
 export function translateServerMessage(message: string): string {
   return SERVER_MESSAGE_LABELS[message] ?? message;
 }
-

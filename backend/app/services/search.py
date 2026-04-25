@@ -304,6 +304,7 @@ class SearchService:
             filename=image.filename,
             relative_path=image.relative_path,
             directory=image.directory,
+            extension=image.extension,
             file_size_bytes=image.file_size_bytes,
             modified_time=image.modified_time,
             width=image.width,

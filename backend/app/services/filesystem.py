@@ -24,6 +24,7 @@ class FileSystemService:
         self.settings = settings
         self.root_path = Path(settings.png_root_dir).expanduser()
         self.thumbnail_cache_path = Path(settings.thumbnail_cache_dir).expanduser()
+        self.supported_extensions = {extension.lower() for extension in settings.supported_image_extensions}
 
     def ensure_roots(self) -> None:
         self.thumbnail_cache_path.mkdir(parents=True, exist_ok=True)
@@ -92,8 +93,11 @@ class FileSystemService:
         except ValueError:
             return False
 
-    def iter_png_files(self) -> Iterator[DiscoveredFile]:
+    def iter_image_files(self) -> Iterator[DiscoveredFile]:
         yield from self._iter_directory(self.root_path, "")
+
+    def iter_png_files(self) -> Iterator[DiscoveredFile]:
+        yield from self.iter_image_files()
 
     def _iter_directory(self, current_path: Path, relative_dir: str) -> Iterator[DiscoveredFile]:
         entries = sorted(os.scandir(current_path), key=lambda entry: (not entry.is_dir(follow_symlinks=False), entry.name.lower()))
@@ -124,7 +128,7 @@ class FileSystemService:
 
             if not entry.is_file(follow_symlinks=self.settings.allow_symlinks):
                 continue
-            if not entry.name.lower().endswith(".png"):
+            if Path(entry.name).suffix.lower() not in self.supported_extensions:
                 continue
 
             try:

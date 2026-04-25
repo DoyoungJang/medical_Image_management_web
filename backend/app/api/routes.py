@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import mimetypes
 from datetime import datetime
 from typing import Literal
 
@@ -49,6 +50,7 @@ def public_config(container: AppContainer = Depends(get_container)) -> PublicCon
         app_name=settings.app_name,
         auth_enabled=settings.auth_enabled,
         public_show_absolute_path=settings.public_show_absolute_path,
+        supported_image_extensions=settings.supported_image_extensions,
         default_page_size=settings.default_page_size,
         max_page_size=settings.max_page_size,
         thumbnail_default_size=settings.thumbnail_default_size,
@@ -215,7 +217,8 @@ def get_original_file(
         file_path = container.file_system_service.resolve_relative_path(image.relative_path, strict=True)
     except (FileNotFoundError, PathValidationError) as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="이미지 파일을 사용할 수 없습니다.") from exc
-    return FileResponse(file_path, media_type="image/png", filename=image.filename)
+    media_type = mimetypes.guess_type(image.filename)[0] or "application/octet-stream"
+    return FileResponse(file_path, media_type=media_type, filename=image.filename)
 
 
 @protected_router.get("/metadata/keys", response_model=MetadataKeysResponse, dependencies=[Depends(require_user)])

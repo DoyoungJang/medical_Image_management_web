@@ -37,7 +37,7 @@ export function ImageDetailDrawer({
       <div className="detail-header">
         <div>
           <p className="eyebrow">상세 보기</p>
-          <h2>{image?.filename ?? "선택된 PNG 없음"}</h2>
+          <h2>{image?.filename ?? "선택된 이미지 없음"}</h2>
           <p className="muted">{breadcrumbText}</p>
         </div>
         <button className="secondary" onClick={onClose}>
@@ -101,6 +101,10 @@ export function ImageDetailDrawer({
               </strong>
             </div>
             <div>
+              <span>확장자</span>
+              <strong>{image.extension}</strong>
+            </div>
+            <div>
               <span>비트 / 컬러 타입</span>
               <strong>
                 {image.bit_depth ?? "-"} / {image.color_type ?? "-"}
@@ -111,7 +115,7 @@ export function ImageDetailDrawer({
           <MetadataTable metadata={image.metadata} />
         </>
       ) : null}
-      {!loading && !image ? <div className="empty-state">목록에서 PNG를 선택해 주세요.</div> : null}
+      {!loading && !image ? <div className="empty-state">목록에서 이미지를 선택해 주세요.</div> : null}
     </aside>
   );
 }

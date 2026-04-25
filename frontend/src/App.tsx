@@ -351,7 +351,7 @@ export default function App() {
         <div>
           <p className="eyebrow">사내 도구</p>
           <h1>{config.app_name}</h1>
-          <p className="muted">PNG 폴더 탐색, 메타데이터 인덱싱, 조건 검색을 안전하게 처리합니다.</p>
+          <p className="muted">PNG, JPG, JPEG, BMP 탐색과 메타데이터 검색을 안전하게 처리합니다.</p>
         </div>
         <div className="header-actions">
           <div className="view-tabs" role="tablist" aria-label="주요 화면">

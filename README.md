@@ -1,6 +1,6 @@
-# PNG 탐색기 설치 가이드
+# 이미지 탐색기 설치 가이드
 
-사내 서버 또는 개발 PC에서 PNG 탐색기를 설치하고 실행하는 방법입니다. 실제 화면 사용법은 [USAGE.md](./USAGE.md)를 참고하세요.
+사내 서버 또는 개발 PC에서 이미지 탐색기를 설치하고 실행하는 방법입니다. PNG, JPG, JPEG, BMP 파일을 지원합니다. 실제 화면 사용법은 [USAGE.md](./USAGE.md)를 참고하세요.
 
 ## 1. Windows 설치
 
@@ -43,14 +43,14 @@ git clone <YOUR_REPOSITORY_URL> medical_Image_management_web
 cd medical_Image_management_web
 ```
 
-### 1.3 PNG 원본 디렉터리 준비
+### 1.3 이미지 원본 디렉터리 준비
 
 ```powershell
 New-Item -ItemType Directory -Force C:\data\company-png
 New-Item -ItemType Directory -Force C:\png-browser-cache
 ```
 
-원본 PNG 파일은 `C:\data\company-png` 아래에 넣습니다. 애플리케이션은 이 디렉터리 밖의 파일을 탐색하지 않습니다.
+원본 이미지 파일은 `C:\data\company-png` 아래에 넣습니다. 기본 지원 확장자는 `.png`, `.jpg`, `.jpeg`, `.bmp`입니다. 애플리케이션은 이 디렉터리 밖의 파일을 탐색하지 않습니다.
 
 ### 1.4 백엔드 설치
 
@@ -85,6 +85,7 @@ $env:AUTO_SCAN_ON_STARTUP="true"
 $env:PERIODIC_SCAN_INTERVAL_SECONDS="300"
 $env:ALLOW_SYMLINKS="false"
 $env:PUBLIC_SHOW_ABSOLUTE_PATH="false"
+$env:SUPPORTED_IMAGE_EXTENSIONS=".png,.jpg,.jpeg,.bmp"
 $env:AUTH_ENABLED="true"
 $env:AUTH_USERNAME="admin"
 $env:AUTH_PASSWORD="admin"
@@ -149,7 +150,7 @@ git clone <YOUR_REPOSITORY_URL> png-browser
 cd png-browser
 ```
 
-### 2.3 PNG 원본 및 캐시 디렉터리 준비
+### 2.3 이미지 원본 및 캐시 디렉터리 준비
 
 ```bash
 sudo mkdir -p /data/company-png
@@ -158,7 +159,7 @@ sudo mkdir -p /var/lib/png-browser
 sudo chown -R $USER:$USER /data/company-png /var/cache/png-browser-thumbnails /var/lib/png-browser
 ```
 
-원본 PNG 파일은 `/data/company-png` 아래에 복사합니다.
+원본 이미지 파일은 `/data/company-png` 아래에 복사합니다. 기본 지원 확장자는 `.png`, `.jpg`, `.jpeg`, `.bmp`입니다.
 
 ### 2.4 백엔드 설치
 
@@ -189,6 +190,7 @@ export AUTO_SCAN_ON_STARTUP=true
 export PERIODIC_SCAN_INTERVAL_SECONDS=300
 export ALLOW_SYMLINKS=false
 export PUBLIC_SHOW_ABSOLUTE_PATH=false
+export SUPPORTED_IMAGE_EXTENSIONS=.png,.jpg,.jpeg,.bmp
 export AUTH_ENABLED=true
 export AUTH_USERNAME=admin
 export AUTH_PASSWORD=admin
@@ -257,6 +259,7 @@ AUTO_SCAN_ON_STARTUP=true
 PERIODIC_SCAN_INTERVAL_SECONDS=300
 ALLOW_SYMLINKS=false
 PUBLIC_SHOW_ABSOLUTE_PATH=false
+SUPPORTED_IMAGE_EXTENSIONS=.png,.jpg,.jpeg,.bmp
 AUTH_ENABLED=true
 AUTH_USERNAME=admin
 AUTH_PASSWORD=admin

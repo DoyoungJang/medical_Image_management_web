@@ -10,6 +10,7 @@ class PublicConfigResponse(BaseModel):
     app_name: str
     auth_enabled: bool
     public_show_absolute_path: bool
+    supported_image_extensions: list[str]
     default_page_size: int
     max_page_size: int
     thumbnail_default_size: int
@@ -38,6 +39,7 @@ class ImageSummaryResponse(BaseModel):
     filename: str
     relative_path: str
     directory: str
+    extension: str
     file_size_bytes: int
     modified_time: datetime
     width: int | None
@@ -111,4 +113,3 @@ class LoginRequest(BaseModel):
 class SessionResponse(BaseModel):
     authenticated: bool
     username: str | None = None
-

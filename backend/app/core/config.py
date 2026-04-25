@@ -9,7 +9,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "PNG 탐색기"
+    app_name: str = "이미지 탐색기"
     environment: Literal["development", "test", "production"] = "development"
     api_prefix: str = "/api"
 
@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     public_show_absolute_path: bool = False
     enable_watchdog: bool = False
     use_fts5: bool = True
+    supported_image_extensions: Annotated[list[str], NoDecode] = Field(default_factory=lambda: [".png", ".jpg", ".jpeg", ".bmp"])
 
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
@@ -68,6 +69,35 @@ class Settings(BaseSettings):
                 return [str(item).strip() for item in parsed if str(item).strip()]
             return [item.strip() for item in raw_value.split(",") if item.strip()]
         raise ValueError("CORS_ORIGINS must be a comma-separated string or list")
+
+    @field_validator("supported_image_extensions", mode="before")
+    @classmethod
+    def parse_supported_image_extensions(cls, value: Any) -> list[str]:
+        if value is None or value == "":
+            return [".png", ".jpg", ".jpeg", ".bmp"]
+        if isinstance(value, list):
+            items = value
+        elif isinstance(value, str):
+            raw_value = value.strip()
+            if raw_value.startswith("["):
+                parsed = json.loads(raw_value)
+                if not isinstance(parsed, list):
+                    raise ValueError("SUPPORTED_IMAGE_EXTENSIONS JSON value must be a list")
+                items = parsed
+            else:
+                items = raw_value.split(",")
+        else:
+            raise ValueError("SUPPORTED_IMAGE_EXTENSIONS must be a comma-separated string or list")
+
+        normalized = []
+        for item in items:
+            extension = str(item).strip().lower()
+            if not extension:
+                continue
+            if not extension.startswith("."):
+                extension = f".{extension}"
+            normalized.append(extension)
+        return list(dict.fromkeys(normalized))
 
 
 @lru_cache

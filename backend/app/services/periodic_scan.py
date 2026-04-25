@@ -21,7 +21,7 @@ class PeriodicScanService:
             return
 
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run, name="periodic-png-rescan", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="periodic-image-rescan", daemon=True)
         self._thread.start()
 
     def stop(self) -> None:

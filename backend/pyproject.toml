@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "png-browser-backend"
 version = "0.1.0"
-description = "Internal PNG browsing application backend"
+description = "Internal image browsing application backend"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -33,4 +33,3 @@ include = ["app*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-

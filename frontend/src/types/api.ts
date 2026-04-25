@@ -2,6 +2,7 @@ export interface PublicConfig {
   app_name: string;
   auth_enabled: boolean;
   public_show_absolute_path: boolean;
+  supported_image_extensions: string[];
   default_page_size: number;
   max_page_size: number;
   thumbnail_default_size: number;
@@ -35,6 +36,7 @@ export interface ImageSummary {
   filename: string;
   relative_path: string;
   directory: string;
+  extension: string;
   file_size_bytes: number;
   modified_time: string;
   width: number | null;

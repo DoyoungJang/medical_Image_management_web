@@ -14,6 +14,9 @@ def test_recursive_scan_indexes_nested_directories(scanned_client) -> None:
         relative_paths = {image.relative_path for image in images}
         assert "nested/alpha.png" in relative_paths
         assert "nested/deeper/deep.png" in relative_paths
+        assert "photo.jpg" in relative_paths
+        assert "nested/scan.jpeg" in relative_paths
+        assert "nested/bitmap.bmp" in relative_paths
 
 
 def test_incremental_reindex_updates_modified_file(scanned_client, test_paths: dict[str, Path]) -> None:

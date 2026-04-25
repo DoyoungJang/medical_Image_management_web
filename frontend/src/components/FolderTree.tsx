@@ -61,7 +61,7 @@ export function FolderTree({ treeCache, selectedPath, expandedPaths, onSelect, o
     <div className="panel tree-panel">
       <div className="panel-header">
         <h2>폴더 트리</h2>
-        <p>PNG 루트 기준 상대 경로만 표시됩니다.</p>
+        <p>이미지 루트 기준 상대 경로만 표시됩니다.</p>
       </div>
       <div className={`folder-row root ${selectedPath === "" ? "selected" : ""}`}>
         <button className="folder-toggle-button secondary" onClick={() => onToggle("")}>
@@ -74,7 +74,7 @@ export function FolderTree({ treeCache, selectedPath, expandedPaths, onSelect, o
       </div>
       {rootIsEmpty ? (
         <div className="tree-empty-state">
-          인덱싱된 PNG가 없습니다. PNG를 추가한 뒤 관리자 화면에서 수동 재스캔을 실행해 주세요.
+          인덱싱된 이미지가 없습니다. PNG, JPG, JPEG, BMP를 추가한 뒤 관리자 화면에서 수동 재스캔을 실행해 주세요.
         </div>
       ) : null}
       <div className="folder-list">

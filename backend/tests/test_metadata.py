@@ -31,6 +31,24 @@ def test_metadata_extractor_collects_dimensions_alpha_and_text(settings, test_pa
     assert "textual_metadata.Author" in pair_keys
 
 
+def test_metadata_extractor_supports_jpeg_and_bmp(settings, test_paths: dict[str, Path]) -> None:
+    extractor = MetadataExtractor(settings)
+
+    jpg_metadata = extractor.extract(test_paths["png_root"] / "photo.jpg", "photo.jpg")
+    bmp_metadata = extractor.extract(test_paths["png_root"] / "nested" / "bitmap.bmp", "nested/bitmap.bmp")
+
+    assert jpg_metadata.status == "ok"
+    assert jpg_metadata.format == "JPEG"
+    assert jpg_metadata.extension == ".jpg"
+    assert jpg_metadata.width == 72
+    assert jpg_metadata.height == 48
+    assert bmp_metadata.status == "ok"
+    assert bmp_metadata.format == "BMP"
+    assert bmp_metadata.extension == ".bmp"
+    assert bmp_metadata.width == 32
+    assert bmp_metadata.height == 24
+
+
 def test_corrupted_png_is_marked_as_corrupted(settings, test_paths: dict[str, Path]) -> None:
     extractor = MetadataExtractor(settings)
     corrupted_metadata = extractor.extract(test_paths["png_root"] / "broken.png", "broken.png")

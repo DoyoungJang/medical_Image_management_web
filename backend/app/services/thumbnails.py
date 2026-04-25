@@ -43,8 +43,10 @@ class ThumbnailService:
                 source_image.load()
                 preview = source_image.copy()
                 preview.thumbnail((bounded_size, bounded_size), Image.Resampling.LANCZOS)
+                if preview.mode not in {"1", "L", "LA", "P", "RGB", "RGBA"}:
+                    preview = preview.convert("RGB")
                 preview.save(thumbnail_path, format="PNG", optimize=True)
         except (UnidentifiedImageError, OSError) as exc:
-            raise ThumbnailError("이 PNG 파일의 썸네일을 생성할 수 없습니다.") from exc
+            raise ThumbnailError("이 이미지 파일의 썸네일을 생성할 수 없습니다.") from exc
 
         return thumbnail_path

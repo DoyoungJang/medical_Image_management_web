@@ -7,10 +7,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, UnidentifiedImageError
+from PIL import ExifTags, Image, UnidentifiedImageError
 
 from app.core.config import Settings
-from app.services.png_chunks import PNGChunkParser, PNGChunkParserError
+from app.services.png_chunks import PNGChunkInfo, PNGChunkParser, PNGChunkParserError
+
+
+SUPPORTED_PIL_FORMATS = {"PNG", "JPEG", "BMP"}
 
 
 @dataclass(slots=True)
@@ -69,17 +72,20 @@ class MetadataExtractor:
         }
 
         try:
-            chunk_info = self.chunk_parser.parse(path)
             with Image.open(path) as image:
                 image.load()
                 image_format = (image.format or "").upper()
-                if image_format and image_format != "PNG":
+                if image_format and image_format not in SUPPORTED_PIL_FORMATS:
                     return self._unsupported(base, "지원하지 않는 이미지 형식입니다.")
 
+                chunk_info = self._parse_png_chunks_if_applicable(path, image_format)
                 dpi_x, dpi_y = self._extract_dpi(image.info.get("dpi"))
                 has_alpha = self._has_alpha(image)
                 pillow_info = self._sanitize_mapping(image.info)
+                exif_metadata = self._extract_exif(image)
                 textual_metadata = self._collect_textual_metadata(chunk_info.text_chunks, pillow_info)
+                bit_depth = chunk_info.bit_depth or self._extract_bit_depth(image, pillow_info)
+                color_type = chunk_info.color_type or self._extract_color_type(image)
                 metadata = {
                     "relative_path": relative_path,
                     "filename": filename,
@@ -91,8 +97,8 @@ class MetadataExtractor:
                     "height": image.height,
                     "format": image.format,
                     "mode": image.mode,
-                    "bit_depth": chunk_info.bit_depth,
-                    "color_type": chunk_info.color_type,
+                    "bit_depth": bit_depth,
+                    "color_type": color_type,
                     "has_alpha": has_alpha,
                     "dpi": {"x": dpi_x, "y": dpi_y},
                     "gamma": pillow_info.get("gamma", chunk_info.gamma),
@@ -103,6 +109,7 @@ class MetadataExtractor:
                     "text_chunks": chunk_info.text_chunks,
                     "textual_metadata": textual_metadata,
                     "exif_present": chunk_info.exif_present or bool(image.info.get("exif")),
+                    "exif": exif_metadata,
                     "pillow_info": pillow_info,
                 }
 
@@ -115,8 +122,8 @@ class MetadataExtractor:
                     height=image.height,
                     format=image.format,
                     mode=image.mode,
-                    bit_depth=chunk_info.bit_depth,
-                    color_type=chunk_info.color_type,
+                    bit_depth=bit_depth,
+                    color_type=color_type,
                     has_alpha=has_alpha,
                     dpi_x=dpi_x,
                     dpi_y=dpi_y,
@@ -136,6 +143,11 @@ class MetadataExtractor:
             return self._failure(base, "unreadable", exc)
         except Exception as exc:  # pragma: no cover - defensive fallback
             return self._failure(base, "unreadable", exc)
+
+    def _parse_png_chunks_if_applicable(self, path: Path, image_format: str) -> PNGChunkInfo:
+        if image_format != "PNG":
+            return PNGChunkInfo()
+        return self.chunk_parser.parse(path)
 
     def _unsupported(self, base: dict[str, Any], message: str) -> ExtractedMetadata:
         return ExtractedMetadata(
@@ -168,7 +180,7 @@ class MetadataExtractor:
             **base,
             width=None,
             height=None,
-            format="PNG",
+            format=Path(base["relative_path"]).suffix.lower().lstrip(".").upper() or None,
             mode=None,
             bit_depth=None,
             color_type=None,
@@ -198,6 +210,50 @@ class MetadataExtractor:
         if isinstance(icc_profile, str):
             return f"ICC profile present ({len(icc_profile.encode('utf-8'))} bytes)"
         return None
+
+    def _extract_bit_depth(self, image: Image.Image, pillow_info: dict[str, Any]) -> int | None:
+        bits_value = pillow_info.get("bits") or pillow_info.get("bits_per_sample")
+        safe_bits = self._safe_float(bits_value)
+        if safe_bits is not None:
+            return int(safe_bits)
+        mode = image.mode
+        if mode == "1":
+            return 1
+        if mode in {"L", "P", "RGB", "RGBA", "LA", "CMYK", "YCbCr"}:
+            return 8
+        if mode.startswith("I;16"):
+            return 16
+        if mode in {"I", "F"}:
+            return 32
+        return None
+
+    def _extract_color_type(self, image: Image.Image) -> str:
+        mode_labels = {
+            "1": "binary",
+            "L": "grayscale",
+            "LA": "grayscale-alpha",
+            "P": "palette",
+            "RGB": "truecolor",
+            "RGBA": "truecolor-alpha",
+            "CMYK": "cmyk",
+            "YCbCr": "ycbcr",
+            "I": "integer",
+            "F": "float",
+        }
+        return mode_labels.get(image.mode, image.mode.lower())
+
+    def _extract_exif(self, image: Image.Image) -> dict[str, Any]:
+        try:
+            raw_exif = image.getexif()
+        except Exception:
+            return {}
+        if not raw_exif:
+            return {}
+        metadata: dict[str, Any] = {}
+        for tag_id, value in raw_exif.items():
+            tag_name = ExifTags.TAGS.get(tag_id, str(tag_id))
+            metadata[str(tag_name)] = self._sanitize_value(value)
+        return metadata
 
     def _has_alpha(self, image: Image.Image) -> bool:
         if "A" in image.mode:
