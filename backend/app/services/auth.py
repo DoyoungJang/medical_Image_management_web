@@ -91,6 +91,17 @@ class AuthService:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인이 필요합니다.")
         return user
 
+    def is_admin_user(self, user: AuthenticatedUser | None) -> bool:
+        if user is None:
+            return False
+        return hmac.compare_digest(user.username, self.settings.auth_username)
+
+    def require_admin_user(self, request: Request) -> AuthenticatedUser:
+        user = self.require_authenticated_user(request)
+        if not self.is_admin_user(user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required.")
+        return user
+
     def set_session_cookie(self, response: Response, username: str) -> None:
         token = self.create_session_token(username)
         response.set_cookie(

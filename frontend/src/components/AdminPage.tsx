@@ -12,6 +12,7 @@ interface AdminPageProps {
   } | null;
   loading: boolean;
   rescanning: boolean;
+  canRescan: boolean;
   onRescan: () => Promise<void>;
 }
 
@@ -46,7 +47,7 @@ function FacetList({ title, items, mapKey }: { title: string; items: FacetCount[
   );
 }
 
-export function AdminPage({ config, indexStatus, facets, loading, rescanning, onRescan }: AdminPageProps) {
+export function AdminPage({ config, indexStatus, facets, loading, rescanning, canRescan, onRescan }: AdminPageProps) {
   const lastStartedAt = indexStatus?.last_started_at ? formatDate(indexStatus.last_started_at) : "-";
   const lastFinishedAt = indexStatus?.last_finished_at ? formatDate(indexStatus.last_finished_at) : "-";
 
@@ -57,7 +58,7 @@ export function AdminPage({ config, indexStatus, facets, loading, rescanning, on
           <p className="eyebrow">관리자</p>
           <h2>인덱스 및 운영 상태</h2>
         </div>
-        <button onClick={onRescan} disabled={rescanning || indexStatus?.scanning}>
+        <button onClick={onRescan} disabled={!canRescan || rescanning || indexStatus?.scanning}>
           {rescanning ? "재스캔 요청 중" : "수동 재스캔"}
         </button>
       </div>

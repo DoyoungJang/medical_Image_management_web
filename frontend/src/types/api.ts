@@ -12,6 +12,7 @@ export interface PublicConfig {
 export interface SessionResponse {
   authenticated: boolean;
   username?: string | null;
+  is_admin: boolean;
 }
 
 export interface BreadcrumbItem {

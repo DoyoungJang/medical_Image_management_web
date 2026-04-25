@@ -37,6 +37,10 @@ def require_user(request: Request, container: AppContainer = Depends(get_contain
     return container.auth_service.require_authenticated_user(request)
 
 
+def require_admin(request: Request, container: AppContainer = Depends(get_container)):
+    return container.auth_service.require_admin_user(request)
+
+
 @public_router.get("/health", response_model=HealthResponse)
 def health_check(db: Session = Depends(get_db)) -> HealthResponse:
     db.execute(text("SELECT 1"))
@@ -63,7 +67,11 @@ def get_session(request: Request, container: AppContainer = Depends(get_containe
     user = container.auth_service.get_authenticated_user(request)
     if user is None:
         return SessionResponse(authenticated=False)
-    return SessionResponse(authenticated=True, username=user.username)
+    return SessionResponse(
+        authenticated=True,
+        username=user.username,
+        is_admin=container.auth_service.is_admin_user(user),
+    )
 
 
 @auth_router.post("/login", response_model=SessionResponse)
@@ -74,7 +82,11 @@ def login(
 ) -> SessionResponse:
     user = container.auth_service.authenticate_credentials(payload.username, payload.password)
     container.auth_service.set_session_cookie(response, user.username)
-    return SessionResponse(authenticated=True, username=user.username)
+    return SessionResponse(
+        authenticated=True,
+        username=user.username,
+        is_admin=container.auth_service.is_admin_user(user),
+    )
 
 
 @auth_router.post("/logout", response_model=SessionResponse)
@@ -279,7 +291,7 @@ def get_metadata_facets(
     )
 
 
-@admin_router.post("/rescan", dependencies=[Depends(require_user)])
+@admin_router.post("/rescan", dependencies=[Depends(require_admin)])
 def trigger_rescan(container: AppContainer = Depends(get_container)) -> dict[str, str]:
     accepted = container.index_service.trigger_background_scan(reason="manual")
     if not accepted:

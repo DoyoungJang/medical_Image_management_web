@@ -16,6 +16,7 @@ export const SORT_LABELS: Record<string, string> = {
 };
 
 const SERVER_MESSAGE_LABELS: Record<string, string> = {
+  "Admin privileges required.": "관리자 계정만 실행할 수 있습니다.",
   "Invalid credentials.": "사용자명 또는 비밀번호가 올바르지 않습니다.",
   "Authentication required.": "로그인이 필요합니다.",
   "AUTH_PASSWORD_HASH is not configured.": "서버 인증 비밀번호 해시가 설정되지 않았습니다.",

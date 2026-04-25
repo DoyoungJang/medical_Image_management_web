@@ -24,9 +24,35 @@ def test_authentication_and_admin_protection(client) -> None:
 
     login = client.post("/api/auth/login", json={"username": "admin", "password": "secret123"})
     assert login.status_code == 200
+    assert login.json()["is_admin"] is True
 
     authorized = client.get("/api/admin/index-status")
     assert authorized.status_code == 200
+
+
+def test_manual_rescan_requires_admin_account(client, monkeypatch) -> None:
+    container = client.app.state.container
+    trigger_calls = []
+    monkeypatch.setattr(
+        container.index_service,
+        "trigger_background_scan",
+        lambda *, reason: trigger_calls.append(reason) or True,
+    )
+    viewer_token = container.auth_service.create_session_token("viewer")
+    client.cookies.set(container.settings.auth_cookie_name, viewer_token)
+
+    status_response = client.get("/api/admin/index-status")
+    rescan_response = client.post("/api/admin/rescan")
+
+    assert status_response.status_code == 200
+    assert rescan_response.status_code == 403
+
+    login = client.post("/api/auth/login", json={"username": "admin", "password": "secret123"})
+    assert login.status_code == 200
+
+    admin_rescan_response = client.post("/api/admin/rescan")
+    assert admin_rescan_response.status_code == 200
+    assert trigger_calls == ["manual"]
 
 
 def test_tree_endpoint_rejects_path_traversal(scanned_client) -> None:

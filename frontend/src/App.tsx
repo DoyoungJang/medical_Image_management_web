@@ -281,7 +281,7 @@ export default function App() {
 
   const handleLogout = async () => {
     await logout();
-    setSession({ authenticated: false });
+    setSession({ authenticated: false, is_admin: false });
     setSelectedImageId(null);
     navigate("browser");
   };
@@ -450,6 +450,7 @@ export default function App() {
           facets={facets}
           loading={adminLoading}
           rescanning={rescanning}
+          canRescan={session?.is_admin === true}
           onRescan={handleRescan}
         />
       )}

@@ -113,3 +113,4 @@ class LoginRequest(BaseModel):
 class SessionResponse(BaseModel):
     authenticated: bool
     username: str | None = None
+    is_admin: bool = False
