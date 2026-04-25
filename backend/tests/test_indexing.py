@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from sqlalchemy import select
 
-from app.models import Image
+from app.models import Image, MetadataKV
 
 
 def test_recursive_scan_indexes_nested_directories(scanned_client) -> None:
@@ -45,6 +46,31 @@ def test_incremental_reindex_skips_unchanged_files(scanned_client) -> None:
     assert result.updated == 0
     assert result.missing_marked == 0
     assert result.scanned == result.skipped
+
+
+def test_incremental_reindex_updates_when_metadata_changes_but_stat_is_same(scanned_client, test_paths: dict[str, Path]) -> None:
+    container = scanned_client.app.state.container
+    target_path = test_paths["png_root"] / "photo.jpg"
+    original_stat = target_path.stat()
+    original_bytes = target_path.read_bytes()
+    updated_bytes = original_bytes.replace(b"<custom:View>4CV</custom:View>", b"<custom:View>5CV</custom:View>")
+
+    assert updated_bytes != original_bytes
+    assert len(updated_bytes) == len(original_bytes)
+
+    target_path.write_bytes(updated_bytes)
+    os.utime(target_path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+
+    result = container.index_service.scan_now(reason="metadata-changed")
+
+    assert result.updated >= 1
+    assert result.skipped < result.scanned
+    with container.session_factory() as session:
+        image = session.execute(select(Image).where(Image.relative_path == "photo.jpg")).scalar_one()
+        metadata_value = session.execute(
+            select(MetadataKV.value_text).where(MetadataKV.image_id == image.id, MetadataKV.key == "xmp.fields.View")
+        ).scalar_one()
+        assert metadata_value == "5CV"
 
 
 def test_missing_file_is_marked_missing(scanned_client, test_paths: dict[str, Path]) -> None:

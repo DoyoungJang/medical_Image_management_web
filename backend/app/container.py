@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings
-from app.db import Base, create_db_engine, create_session_factory
+from app.db import Base, create_db_engine, create_session_factory, ensure_schema_compatibility
 from app.services.auth import AuthService
 from app.services.filesystem import FileSystemService
 from app.services.indexing import IndexService
@@ -38,6 +38,7 @@ class AppContainer:
     def initialize(self) -> None:
         self.file_system_service.ensure_roots()
         Base.metadata.create_all(bind=self.engine)
+        ensure_schema_compatibility(self.engine)
         self.search_service.initialize()
 
     def start_background_services(self) -> None:

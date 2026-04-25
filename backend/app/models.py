@@ -29,6 +29,7 @@ class Image(Base):
     directory: Mapped[str] = mapped_column(String(2048), index=True, default="")
     extension: Mapped[str] = mapped_column(String(32), default=".png")
     file_size_bytes: Mapped[int] = mapped_column(BigInteger)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     modified_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     width: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)

@@ -41,6 +41,7 @@ class ExtractedMetadata:
     directory: str
     extension: str
     file_size_bytes: int
+    content_hash: str | None
     modified_time: datetime
     width: int | None
     height: int | None
@@ -63,7 +64,14 @@ class MetadataExtractor:
         self.settings = settings
         self.chunk_parser = PNGChunkParser(max_text_bytes=settings.max_png_text_bytes)
 
-    def extract(self, path: Path, relative_path: str, stat_result: object | None = None) -> ExtractedMetadata:
+    def extract(
+        self,
+        path: Path,
+        relative_path: str,
+        stat_result: object | None = None,
+        *,
+        content_hash: str | None = None,
+    ) -> ExtractedMetadata:
         filename = Path(relative_path).name
         directory = str(Path(relative_path).parent).replace("\\", "/")
         if directory == ".":
@@ -79,6 +87,7 @@ class MetadataExtractor:
             "directory": directory,
             "extension": extension,
             "file_size_bytes": file_size_bytes,
+            "content_hash": content_hash,
             "modified_time": modified_time,
         }
 

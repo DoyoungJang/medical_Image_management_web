@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import threading
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -97,8 +98,9 @@ class IndexService:
                         result.scanned += 1
                         current_image = existing_images.get(discovered.relative_path)
                         modified_time = datetime.fromtimestamp(discovered.stat_result.st_mtime, tz=timezone.utc)
+                        content_hash = self._hash_file(discovered.absolute_path)
 
-                        if current_image is not None and self._is_unchanged(current_image, discovered, modified_time):
+                        if current_image is not None and self._is_unchanged(current_image, discovered, modified_time, content_hash):
                             result.skipped += 1
                             continue
 
@@ -106,6 +108,7 @@ class IndexService:
                             discovered.absolute_path,
                             discovered.relative_path,
                             discovered.stat_result,
+                            content_hash=content_hash,
                         )
                         self._upsert_image(session, current_image, extracted)
                         result.updated += 1
@@ -145,6 +148,7 @@ class IndexService:
         image.directory = extracted.directory
         image.extension = extracted.extension
         image.file_size_bytes = extracted.file_size_bytes
+        image.content_hash = extracted.content_hash
         image.modified_time = extracted.modified_time
         image.width = extracted.width
         image.height = extracted.height
@@ -173,10 +177,15 @@ class IndexService:
         )
         return image
 
-    def _is_unchanged(self, image: Image, discovered: DiscoveredFile, modified_time: datetime) -> bool:
+    def _is_unchanged(self, image: Image, discovered: DiscoveredFile, modified_time: datetime, content_hash: str) -> bool:
         if image.missing_at is not None:
             return False
         if image.file_size_bytes != int(discovered.stat_result.st_size):
+            return False
+        if image.content_hash is None:
+            # Existing databases need one refresh to store hashes before hash-based skipping is safe.
+            return False
+        if image.content_hash != content_hash:
             return False
 
         stored_modified_time = image.modified_time
@@ -184,6 +193,13 @@ class IndexService:
             # SQLite returns naive datetimes even when SQLAlchemy is configured with timezone=True.
             stored_modified_time = stored_modified_time.replace(tzinfo=timezone.utc)
         return abs(stored_modified_time.timestamp() - modified_time.timestamp()) < 0.001
+
+    def _hash_file(self, path: Path) -> str:
+        digest = hashlib.sha256()
+        with path.open("rb") as file:
+            for chunk in iter(lambda: file.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
 
     def get_status(self, session: Session) -> dict[str, object]:
         counts = self.search_service.get_index_counts(session)
