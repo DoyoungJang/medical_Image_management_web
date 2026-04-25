@@ -50,6 +50,13 @@ function FacetList({ title, items, mapKey }: { title: string; items: FacetCount[
 export function AdminPage({ config, indexStatus, facets, loading, rescanning, canRescan, onRescan }: AdminPageProps) {
   const lastStartedAt = indexStatus?.last_started_at ? formatDate(indexStatus.last_started_at) : "-";
   const lastFinishedAt = indexStatus?.last_finished_at ? formatDate(indexStatus.last_finished_at) : "-";
+  const rescanButtonLabel = !canRescan
+    ? "관리자 권한 필요"
+    : rescanning
+      ? "재스캔 요청 중"
+      : indexStatus?.scanning
+        ? "스캔 진행 중"
+        : "수동 재스캔";
 
   return (
     <main className="admin-page">
@@ -59,7 +66,7 @@ export function AdminPage({ config, indexStatus, facets, loading, rescanning, ca
           <h2>인덱스 및 운영 상태</h2>
         </div>
         <button onClick={onRescan} disabled={!canRescan || rescanning || indexStatus?.scanning}>
-          {rescanning ? "재스캔 요청 중" : "수동 재스캔"}
+          {rescanButtonLabel}
         </button>
       </div>
 

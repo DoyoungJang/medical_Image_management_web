@@ -91,6 +91,15 @@ function buildSearchParams(filters: SearchFilters): URLSearchParams {
   return params;
 }
 
+function canUseManualRescan(session: SessionResponse | null): boolean {
+  if (!session?.authenticated) {
+    return false;
+  }
+  // The backend is the source of truth. If older/stale session responses omit is_admin,
+  // keep the button usable and let the protected API enforce the final permission.
+  return session.is_admin !== false;
+}
+
 export default function App() {
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [session, setSession] = useState<SessionResponse | null>(null);
@@ -450,7 +459,7 @@ export default function App() {
           facets={facets}
           loading={adminLoading}
           rescanning={rescanning}
-          canRescan={session?.is_admin === true}
+          canRescan={canUseManualRescan(session)}
           onRescan={handleRescan}
         />
       )}
