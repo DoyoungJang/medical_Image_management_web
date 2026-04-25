@@ -1,6 +1,6 @@
 # 이미지 탐색기 사용 방법
 
-이 문서는 설치가 끝난 뒤 실제로 이미지 탐색기를 사용하는 방법을 설명합니다. PNG, JPG, JPEG, BMP 파일을 지원합니다. 설치는 [README.md](./README.md)를 참고하세요.
+이 문서는 설치가 끝난 뒤 실제로 이미지 탐색기를 사용하는 방법을 설명합니다. PNG, JPG/JPEG, BMP, GIF, TIFF, WEBP 등 일반 이미지 파일을 지원합니다. 설치는 [README.md](./README.md)를 참고하세요.
 
 ## 1. 접속과 로그인
 
@@ -31,7 +31,7 @@ http://<SERVER_IP>:8080
 
 `PERIODIC_SCAN_INTERVAL_SECONDS=300`이면 백엔드가 실행 중인 동안 5분마다 자동 재스캔합니다. 새 이미지 파일을 복사해 둔 뒤 기다리면 폴더 트리와 검색 결과에 반영됩니다.
 
-`SUPPORTED_IMAGE_EXTENSIONS=.png,.jpg,.jpeg,.bmp` 값으로 탐색할 이미지 확장자를 조절할 수 있습니다.
+`SUPPORTED_IMAGE_EXTENSIONS=.png,.jpg,.jpeg,.jpe,.jfif,.bmp,.gif,.tif,.tiff,.webp,.ico,.jp2,.j2k,.tga` 값으로 탐색할 이미지 확장자를 조절할 수 있습니다.
 
 주기 스캔을 끄려면 값을 `0`으로 설정합니다.
 
@@ -125,8 +125,11 @@ curl -X POST http://localhost:8000/api/admin/rescan
 - 상태별 이미지 수
 - 주요 디렉터리
 - 자주 발견된 메타데이터 키
+- 관리자 지정 메타데이터 키
 
 관리자 화면에서 `수동 재스캔`을 누르면 백그라운드 스캔이 시작됩니다. 이 작업은 `AUTH_USERNAME`으로 설정된 관리자 계정만 실행할 수 있으며, 스캔 중에도 탐색 화면은 계속 사용할 수 있습니다.
+
+관리자 지정 메타데이터에는 이미지 목록과 상세 화면에 항상 표시할 키를 등록합니다. 예를 들어 `View`를 등록하면 해당 이미지에 `View=3VV` 메타데이터가 있을 때 `View: 3VV`로 표시되고, 없으면 `View: null`로 표시됩니다. 등록과 삭제는 관리자 계정만 가능합니다.
 
 ## 7. 안전 규칙
 

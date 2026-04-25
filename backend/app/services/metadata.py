@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,7 +14,17 @@ from app.core.config import Settings
 from app.services.png_chunks import PNGChunkInfo, PNGChunkParser, PNGChunkParserError
 
 
-SUPPORTED_PIL_FORMATS = {"PNG", "JPEG", "BMP"}
+SUPPORTED_PIL_FORMATS = {
+    "PNG",
+    "JPEG",
+    "BMP",
+    "GIF",
+    "TIFF",
+    "WEBP",
+    "ICO",
+    "JPEG2000",
+    "TGA",
+}
 
 
 @dataclass(slots=True)
@@ -83,6 +94,7 @@ class MetadataExtractor:
                 has_alpha = self._has_alpha(image)
                 pillow_info = self._sanitize_mapping(image.info)
                 exif_metadata = self._extract_exif(image)
+                xmp_metadata = self._extract_xmp_from_info(image.info)
                 textual_metadata = self._collect_textual_metadata(chunk_info.text_chunks, pillow_info)
                 bit_depth = chunk_info.bit_depth or self._extract_bit_depth(image, pillow_info)
                 color_type = chunk_info.color_type or self._extract_color_type(image)
@@ -110,6 +122,8 @@ class MetadataExtractor:
                     "textual_metadata": textual_metadata,
                     "exif_present": chunk_info.exif_present or bool(image.info.get("exif")),
                     "exif": exif_metadata,
+                    "xmp_present": bool(xmp_metadata),
+                    "xmp": xmp_metadata,
                     "pillow_info": pillow_info,
                 }
 
@@ -254,6 +268,74 @@ class MetadataExtractor:
             tag_name = ExifTags.TAGS.get(tag_id, str(tag_id))
             metadata[str(tag_name)] = self._sanitize_value(value)
         return metadata
+
+    def _extract_xmp_from_info(self, image_info: dict[str, Any]) -> dict[str, Any]:
+        combined_fields: dict[str, list[str]] = {}
+        raw_values: list[str] = []
+        for key, value in image_info.items():
+            normalized_key = str(key).lower()
+            if "xmp" not in normalized_key and normalized_key not in {"xml", "xml_packet"}:
+                continue
+            extracted = self._extract_xmp(value)
+            fields = extracted.get("fields")
+            if isinstance(fields, dict):
+                for field_key, field_values in fields.items():
+                    if not isinstance(field_values, list):
+                        continue
+                    bucket = combined_fields.setdefault(str(field_key), [])
+                    for field_value in field_values:
+                        text_value = str(field_value).strip()
+                        if text_value and text_value not in bucket:
+                            bucket.append(text_value)
+            raw_value = extracted.get("raw")
+            if isinstance(raw_value, str) and raw_value not in raw_values:
+                raw_values.append(raw_value)
+
+        metadata: dict[str, Any] = {}
+        if combined_fields:
+            metadata["fields"] = combined_fields
+        if raw_values:
+            metadata["raw"] = raw_values
+        return metadata
+
+    def _extract_xmp(self, xmp_value: Any) -> dict[str, Any]:
+        if not xmp_value:
+            return {}
+        if isinstance(xmp_value, bytes):
+            xmp_text = xmp_value.decode("utf-8", errors="replace")
+        else:
+            xmp_text = str(xmp_value)
+
+        fields: dict[str, list[str]] = {}
+        try:
+            root = ET.fromstring(xmp_text)
+        except ET.ParseError:
+            return {"raw": xmp_text[:4000]}
+
+        def local_name(name: str) -> str:
+            if "}" in name:
+                return name.rsplit("}", 1)[1]
+            if ":" in name:
+                return name.rsplit(":", 1)[1]
+            return name
+
+        def add_field(key: str, value: Any) -> None:
+            text_value = str(value).strip()
+            if not key or not text_value:
+                return
+            bucket = fields.setdefault(key, [])
+            if text_value not in bucket:
+                bucket.append(text_value)
+
+        for element in root.iter():
+            text_value = (element.text or "").strip()
+            if text_value:
+                add_field(local_name(element.tag), text_value)
+            for attribute_name, attribute_value in element.attrib.items():
+                if local_name(attribute_name) == "about":
+                    continue
+                add_field(local_name(attribute_name), attribute_value)
+        return {"fields": fields}
 
     def _has_alpha(self, image: Image.Image) -> bool:
         if "A" in image.mode:

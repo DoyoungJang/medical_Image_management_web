@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -65,6 +65,13 @@ class MetadataKV(Base):
     image: Mapped[Image] = relationship(back_populates="metadata_entries")
 
 
+class TrackedMetadataKey(Base):
+    __tablename__ = "tracked_metadata_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 Index("ix_images_directory_filename", Image.directory, Image.filename)
 Index("ix_metadata_kv_key_value", MetadataKV.key, MetadataKV.value_text)
-

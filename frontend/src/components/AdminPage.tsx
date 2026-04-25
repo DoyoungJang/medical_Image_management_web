@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { FacetCount, IndexStatusResponse, PublicConfig } from "../types/api";
 import { booleanLabel, statusLabel } from "../utils/labels";
 import { formatDate } from "../utils/format";
@@ -13,7 +15,11 @@ interface AdminPageProps {
   loading: boolean;
   rescanning: boolean;
   canRescan: boolean;
+  metadataKeys: string[];
+  trackedMetadataKeys: string[];
   onRescan: () => Promise<void>;
+  onAddTrackedMetadataKey: (key: string) => Promise<void>;
+  onRemoveTrackedMetadataKey: (key: string) => Promise<void>;
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
@@ -47,7 +53,22 @@ function FacetList({ title, items, mapKey }: { title: string; items: FacetCount[
   );
 }
 
-export function AdminPage({ config, indexStatus, facets, loading, rescanning, canRescan, onRescan }: AdminPageProps) {
+export function AdminPage({
+  config,
+  indexStatus,
+  facets,
+  loading,
+  rescanning,
+  canRescan,
+  metadataKeys,
+  trackedMetadataKeys,
+  onRescan,
+  onAddTrackedMetadataKey,
+  onRemoveTrackedMetadataKey,
+}: AdminPageProps) {
+  const [trackedKeyInput, setTrackedKeyInput] = useState("");
+  const [metadataKeySaving, setMetadataKeySaving] = useState(false);
+  const [metadataKeyError, setMetadataKeyError] = useState("");
   const lastStartedAt = indexStatus?.last_started_at ? formatDate(indexStatus.last_started_at) : "-";
   const lastFinishedAt = indexStatus?.last_finished_at ? formatDate(indexStatus.last_finished_at) : "-";
   const rescanButtonLabel = !canRescan
@@ -121,6 +142,84 @@ export function AdminPage({ config, indexStatus, facets, loading, rescanning, ca
             <strong>{config.max_page_size}</strong>
           </div>
         </div>
+      </section>
+
+      <section className="admin-section">
+        <div className="section-header">
+          <div>
+            <h3>관리자 지정 메타데이터</h3>
+            <p className="muted">예: View를 등록하면 이미지마다 View 값이 표시되고, 없으면 null로 표시됩니다.</p>
+          </div>
+        </div>
+        <form
+          className="tracked-metadata-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const key = trackedKeyInput.trim();
+            if (!key) {
+              return;
+            }
+            setMetadataKeySaving(true);
+            setMetadataKeyError("");
+            try {
+              await onAddTrackedMetadataKey(key);
+              setTrackedKeyInput("");
+            } catch (error) {
+              setMetadataKeyError(error instanceof Error ? error.message : "메타데이터 키를 추가하지 못했습니다.");
+            } finally {
+              setMetadataKeySaving(false);
+            }
+          }}
+        >
+          <label>
+            표시할 메타데이터 키
+            <input
+              value={trackedKeyInput}
+              list="admin-metadata-keys"
+              placeholder="예: View"
+              disabled={!canRescan || metadataKeySaving}
+              onChange={(event) => setTrackedKeyInput(event.target.value)}
+            />
+          </label>
+          <datalist id="admin-metadata-keys">
+            {metadataKeys.map((key) => (
+              <option key={key} value={key} />
+            ))}
+          </datalist>
+          <button type="submit" disabled={!canRescan || metadataKeySaving || !trackedKeyInput.trim()}>
+            {metadataKeySaving ? "추가 중" : "키 추가"}
+          </button>
+        </form>
+        {metadataKeyError ? <div className="error-box">{metadataKeyError}</div> : null}
+        {trackedMetadataKeys.length ? (
+          <div className="tracked-metadata-list">
+            {trackedMetadataKeys.map((key) => (
+              <span key={key} className="tracked-metadata-token">
+                {key}
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!canRescan || metadataKeySaving}
+                  onClick={async () => {
+                    setMetadataKeySaving(true);
+                    setMetadataKeyError("");
+                    try {
+                      await onRemoveTrackedMetadataKey(key);
+                    } catch (error) {
+                      setMetadataKeyError(error instanceof Error ? error.message : "메타데이터 키를 삭제하지 못했습니다.");
+                    } finally {
+                      setMetadataKeySaving(false);
+                    }
+                  }}
+                >
+                  삭제
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-inline">아직 등록된 관리자 지정 메타데이터 키가 없습니다.</p>
+        )}
       </section>
 
       <div className="admin-grid">

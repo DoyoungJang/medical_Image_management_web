@@ -6,6 +6,7 @@ import type {
   MetadataFacetsResponse,
   PublicConfig,
   SessionResponse,
+  TrackedMetadataKeysResponse,
   TreeResponse,
 } from "../types/api";
 import { translateServerMessage } from "./labels";
@@ -85,6 +86,24 @@ export async function fetchFacets(params: URLSearchParams): Promise<MetadataFace
 
 export async function fetchMetadataKeys(): Promise<MetadataKeysResponse> {
   return request<MetadataKeysResponse>("/metadata/keys");
+}
+
+export async function fetchTrackedMetadataKeys(): Promise<TrackedMetadataKeysResponse> {
+  return request<TrackedMetadataKeysResponse>("/metadata/tracked-keys");
+}
+
+export async function addTrackedMetadataKey(key: string): Promise<TrackedMetadataKeysResponse> {
+  return request<TrackedMetadataKeysResponse>("/admin/tracked-metadata-keys", {
+    method: "POST",
+    body: JSON.stringify({ key }),
+  });
+}
+
+export async function removeTrackedMetadataKey(key: string): Promise<TrackedMetadataKeysResponse> {
+  return request<TrackedMetadataKeysResponse>("/admin/tracked-metadata-keys", {
+    method: "DELETE",
+    body: JSON.stringify({ key }),
+  });
 }
 
 export async function fetchIndexStatus(): Promise<IndexStatusResponse> {

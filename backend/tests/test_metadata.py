@@ -42,11 +42,45 @@ def test_metadata_extractor_supports_jpeg_and_bmp(settings, test_paths: dict[str
     assert jpg_metadata.extension == ".jpg"
     assert jpg_metadata.width == 72
     assert jpg_metadata.height == 48
+    assert jpg_metadata.metadata["xmp"]["fields"]["View"] == ["4CV"]
+    assert any(pair.key == "xmp.fields.View" and pair.value_text == "4CV" for pair in jpg_metadata.metadata_pairs)
     assert bmp_metadata.status == "ok"
     assert bmp_metadata.format == "BMP"
     assert bmp_metadata.extension == ".bmp"
     assert bmp_metadata.width == 32
     assert bmp_metadata.height == 24
+
+
+def test_metadata_extractor_supports_common_pillow_formats(settings, test_paths: dict[str, Path]) -> None:
+    extractor = MetadataExtractor(settings)
+
+    gif_metadata = extractor.extract(test_paths["png_root"] / "animated.gif", "animated.gif")
+    tiff_metadata = extractor.extract(test_paths["png_root"] / "nested" / "slice.tiff", "nested/slice.tiff")
+    webp_metadata = extractor.extract(test_paths["png_root"] / "nested" / "preview.webp", "nested/preview.webp")
+
+    assert gif_metadata.status == "ok"
+    assert gif_metadata.format == "GIF"
+    assert gif_metadata.extension == ".gif"
+    assert tiff_metadata.status == "ok"
+    assert tiff_metadata.format == "TIFF"
+    assert tiff_metadata.extension == ".tiff"
+    assert webp_metadata.status == "ok"
+    assert webp_metadata.format == "WEBP"
+    assert webp_metadata.extension == ".webp"
+
+
+def test_metadata_extractor_uses_real_format_when_extension_is_wrong(settings, test_paths: dict[str, Path]) -> None:
+    extractor = MetadataExtractor(settings)
+
+    metadata = extractor.extract(
+        test_paths["png_root"] / "jpeg-disguised-as-png.png",
+        "jpeg-disguised-as-png.png",
+    )
+
+    assert metadata.status == "ok"
+    assert metadata.format == "JPEG"
+    assert metadata.extension == ".png"
+    assert metadata.metadata["xmp"]["fields"]["View"] == ["4CV"]
 
 
 def test_corrupted_png_is_marked_as_corrupted(settings, test_paths: dict[str, Path]) -> None:

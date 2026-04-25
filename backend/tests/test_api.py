@@ -124,7 +124,7 @@ def test_structured_filters_and_facets(scanned_client) -> None:
 
 def test_thumbnail_and_file_endpoints(scanned_client) -> None:
     list_response = scanned_client.get("/api/images", params={"q": "meta"})
-    image_id = list_response.json()["items"][0]["id"]
+    image_id = next(item["id"] for item in list_response.json()["items"] if item["filename"] == "meta.png")
 
     thumbnail_response = scanned_client.get(f"/api/images/{image_id}/thumbnail", params={"size": 128})
     file_response = scanned_client.get(f"/api/images/{image_id}/file")
@@ -137,7 +137,7 @@ def test_thumbnail_and_file_endpoints(scanned_client) -> None:
 
 def test_original_file_endpoint_uses_image_media_type(scanned_client) -> None:
     jpg_response = scanned_client.get("/api/images", params={"q": "photo"})
-    image_id = jpg_response.json()["items"][0]["id"]
+    image_id = next(item["id"] for item in jpg_response.json()["items"] if item["filename"] == "photo.jpg")
 
     file_response = scanned_client.get(f"/api/images/{image_id}/file")
     thumbnail_response = scanned_client.get(f"/api/images/{image_id}/thumbnail", params={"size": 128})
@@ -161,3 +161,42 @@ def test_metadata_key_search(scanned_client) -> None:
     )
     assert response.status_code == 200
     assert any(item["filename"] == "meta.png" for item in response.json()["items"])
+
+
+def test_admin_tracked_metadata_keys_are_returned_with_null_for_missing_values(scanned_client) -> None:
+    add_response = scanned_client.post("/api/admin/tracked-metadata-keys", json={"key": "View"})
+    assert add_response.status_code == 200
+    assert add_response.json()["keys"] == ["View"]
+
+    keys_response = scanned_client.get("/api/metadata/tracked-keys")
+    assert keys_response.status_code == 200
+    assert keys_response.json()["keys"] == ["View"]
+
+    image_response = scanned_client.get("/api/images", params={"q": "png"})
+    assert image_response.status_code == 200
+    items = image_response.json()["items"]
+    meta_item = next(item for item in items if item["filename"] == "meta.png")
+    plain_item = next(item for item in items if item["filename"] == "plain.png")
+    assert meta_item["tracked_metadata"]["View"] == "3VV"
+    assert plain_item["tracked_metadata"]["View"] is None
+
+    xmp_response = scanned_client.get("/api/images", params={"q": "photo"})
+    assert xmp_response.status_code == 200
+    xmp_item = next(item for item in xmp_response.json()["items"] if item["filename"] == "photo.jpg")
+    assert xmp_item["tracked_metadata"]["View"] == "4CV"
+
+    detail_response = scanned_client.get(f"/api/images/{meta_item['id']}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["tracked_metadata"]["View"] == "3VV"
+
+
+def test_tracked_metadata_key_mutation_requires_admin_account(client) -> None:
+    container = client.app.state.container
+    viewer_token = container.auth_service.create_session_token("viewer")
+    client.cookies.set(container.settings.auth_cookie_name, viewer_token)
+
+    add_response = client.post("/api/admin/tracked-metadata-keys", json={"key": "View"})
+    remove_response = client.request("DELETE", "/api/admin/tracked-metadata-keys", json={"key": "View"})
+
+    assert add_response.status_code == 403
+    assert remove_response.status_code == 403

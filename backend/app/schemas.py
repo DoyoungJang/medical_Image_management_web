@@ -47,6 +47,7 @@ class ImageSummaryResponse(BaseModel):
     status: str
     has_alpha: bool | None
     metadata_summary: list[MetadataSummaryItem] = Field(default_factory=list)
+    tracked_metadata: dict[str, str | None] = Field(default_factory=dict)
 
 
 class ImageDetailResponse(ImageSummaryResponse):
@@ -77,6 +78,14 @@ class TreeResponse(BaseModel):
 
 class MetadataKeysResponse(BaseModel):
     keys: list[str]
+
+
+class TrackedMetadataKeysResponse(BaseModel):
+    keys: list[str]
+
+
+class TrackedMetadataKeyRequest(BaseModel):
+    key: str = Field(min_length=1, max_length=255)
 
 
 class FacetCount(BaseModel):

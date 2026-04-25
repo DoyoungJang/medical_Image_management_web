@@ -18,6 +18,7 @@ import type {
   TreeResponse,
 } from "./types/api";
 import {
+  addTrackedMetadataKey,
   fetchFacets,
   fetchImageDetail,
   fetchImages,
@@ -26,8 +27,10 @@ import {
   fetchPublicConfig,
   fetchSession,
   fetchTree,
+  fetchTrackedMetadataKeys,
   login,
   logout,
+  removeTrackedMetadataKey,
   triggerRescan,
 } from "./utils/api";
 import { SORT_LABELS } from "./utils/labels";
@@ -107,6 +110,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>(viewFromPath);
+  const [treeRailExpanded, setTreeRailExpanded] = useState(false);
 
   const [treeCache, setTreeCache] = useState<Record<string, TreeResponse | undefined>>({});
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set([""]));
@@ -124,6 +128,7 @@ export default function App() {
   const [fitToScreen, setFitToScreen] = useState(true);
 
   const [metadataKeys, setMetadataKeys] = useState<string[]>([]);
+  const [trackedMetadataKeys, setTrackedMetadataKeys] = useState<string[]>([]);
   const [facets, setFacets] = useState<MetadataFacetsResponse | null>(null);
   const [indexStatus, setIndexStatus] = useState<IndexStatusResponse | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
@@ -205,12 +210,14 @@ export default function App() {
     const loadSidebarData = async () => {
       setAdminLoading(true);
       try {
-        const [metadataKeysResponse, facetsResponse, indexStatusResponse] = await Promise.all([
+        const [metadataKeysResponse, trackedMetadataKeysResponse, facetsResponse, indexStatusResponse] = await Promise.all([
           fetchMetadataKeys(),
+          fetchTrackedMetadataKeys(),
           fetchFacets(new URLSearchParams()),
           fetchIndexStatus(),
         ]);
         setMetadataKeys(metadataKeysResponse.keys);
+        setTrackedMetadataKeys(trackedMetadataKeysResponse.keys);
         setFacets(facetsResponse);
         setIndexStatus(indexStatusResponse);
       } catch (sidebarError) {
@@ -342,6 +349,34 @@ export default function App() {
     }
   };
 
+  const refreshCurrentImages = async () => {
+    const params = buildSearchParams(filters);
+    const imageResponse = await fetchImages(params);
+    setImages(imageResponse);
+    if (selectedImageId) {
+      const detail = await fetchImageDetail(selectedImageId);
+      setSelectedImage(detail);
+    }
+  };
+
+  const handleAddTrackedMetadataKey = async (key: string) => {
+    const response = await addTrackedMetadataKey(key);
+    setTrackedMetadataKeys(response.keys);
+    await refreshCurrentImages();
+  };
+
+  const handleRemoveTrackedMetadataKey = async (key: string) => {
+    const response = await removeTrackedMetadataKey(key);
+    setTrackedMetadataKeys(response.keys);
+    await refreshCurrentImages();
+  };
+
+  const handlePageSizeChange = (rawValue: string) => {
+    const parsedValue = Number(rawValue);
+    const nextPageSize = Math.min(config?.max_page_size ?? 100, Math.max(1, Number.isFinite(parsedValue) ? parsedValue : 1));
+    setFilters((current) => ({ ...current, pageSize: nextPageSize, page: 1 }));
+  };
+
   if (initializing) {
     return <div className="app-loading">초기 설정을 불러오는 중입니다.</div>;
   }
@@ -360,7 +395,7 @@ export default function App() {
         <div>
           <p className="eyebrow">사내 도구</p>
           <h1>{config.app_name}</h1>
-          <p className="muted">PNG, JPG, JPEG, BMP 탐색과 메타데이터 검색을 안전하게 처리합니다.</p>
+          <p className="muted">PNG, JPG/JPEG, BMP, GIF, TIFF, WEBP 등 이미지 탐색과 메타데이터 검색을 안전하게 처리합니다.</p>
         </div>
         <div className="header-actions">
           <div className="view-tabs" role="tablist" aria-label="주요 화면">
@@ -381,8 +416,18 @@ export default function App() {
       {error ? <div className="global-error">{error}</div> : null}
 
       {viewMode === "browser" ? (
-        <div className="app-layout">
-          <aside className="left-rail">
+        <div className={`app-layout ${treeRailExpanded ? "tree-expanded" : ""}`}>
+          <aside
+            className="left-rail"
+            onMouseEnter={() => setTreeRailExpanded(true)}
+            onMouseLeave={() => setTreeRailExpanded(false)}
+            onFocusCapture={() => setTreeRailExpanded(true)}
+            onBlurCapture={(event) => {
+              if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget as Node)) {
+                setTreeRailExpanded(false);
+              }
+            }}
+          >
             <FolderTree
               treeCache={treeCache}
               selectedPath={selectedPath}
@@ -411,6 +456,17 @@ export default function App() {
                 </p>
               </div>
               <div className="pagination">
+                <label className="page-size-control">
+                  <span>표시 개수</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={config.max_page_size}
+                    value={filters.pageSize}
+                    onChange={(event) => handlePageSizeChange(event.target.value)}
+                  />
+                  <small>최대 {config.max_page_size}</small>
+                </label>
                 <button
                   className="secondary"
                   disabled={(filters.page ?? 1) <= 1}
@@ -460,7 +516,11 @@ export default function App() {
           loading={adminLoading}
           rescanning={rescanning}
           canRescan={canUseManualRescan(session)}
+          metadataKeys={metadataKeys}
+          trackedMetadataKeys={trackedMetadataKeys}
           onRescan={handleRescan}
+          onAddTrackedMetadataKey={handleAddTrackedMetadataKey}
+          onRemoveTrackedMetadataKey={handleRemoveTrackedMetadataKey}
         />
       )}
     </div>

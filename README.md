@@ -1,6 +1,6 @@
 # 이미지 탐색기 설치 가이드
 
-사내 서버 또는 개발 PC에서 이미지 탐색기를 설치하고 실행하는 방법입니다. PNG, JPG, JPEG, BMP 파일을 지원합니다. 실제 화면 사용법은 [USAGE.md](./USAGE.md)를 참고하세요.
+사내 서버 또는 개발 PC에서 이미지 탐색기를 설치하고 실행하는 방법입니다. PNG, JPG/JPEG, BMP, GIF, TIFF, WEBP 등 일반 이미지 파일을 지원합니다. 실제 화면 사용법은 [USAGE.md](./USAGE.md)를 참고하세요.
 
 ## 1. Windows 설치
 
@@ -85,7 +85,7 @@ $env:AUTO_SCAN_ON_STARTUP="true"
 $env:PERIODIC_SCAN_INTERVAL_SECONDS="300"
 $env:ALLOW_SYMLINKS="false"
 $env:PUBLIC_SHOW_ABSOLUTE_PATH="false"
-$env:SUPPORTED_IMAGE_EXTENSIONS=".png,.jpg,.jpeg,.bmp"
+$env:SUPPORTED_IMAGE_EXTENSIONS=".png,.jpg,.jpeg,.jpe,.jfif,.bmp,.gif,.tif,.tiff,.webp,.ico,.jp2,.j2k,.tga"
 $env:AUTH_ENABLED="true"
 $env:AUTH_USERNAME="admin"
 $env:AUTH_PASSWORD="admin"
@@ -190,7 +190,7 @@ export AUTO_SCAN_ON_STARTUP=true
 export PERIODIC_SCAN_INTERVAL_SECONDS=300
 export ALLOW_SYMLINKS=false
 export PUBLIC_SHOW_ABSOLUTE_PATH=false
-export SUPPORTED_IMAGE_EXTENSIONS=.png,.jpg,.jpeg,.bmp
+export SUPPORTED_IMAGE_EXTENSIONS=.png,.jpg,.jpeg,.jpe,.jfif,.bmp,.gif,.tif,.tiff,.webp,.ico,.jp2,.j2k,.tga
 export AUTH_ENABLED=true
 export AUTH_USERNAME=admin
 export AUTH_PASSWORD=admin
@@ -259,7 +259,7 @@ AUTO_SCAN_ON_STARTUP=true
 PERIODIC_SCAN_INTERVAL_SECONDS=300
 ALLOW_SYMLINKS=false
 PUBLIC_SHOW_ABSOLUTE_PATH=false
-SUPPORTED_IMAGE_EXTENSIONS=.png,.jpg,.jpeg,.bmp
+SUPPORTED_IMAGE_EXTENSIONS=.png,.jpg,.jpeg,.jpe,.jfif,.bmp,.gif,.tif,.tiff,.webp,.ico,.jp2,.j2k,.tga
 AUTH_ENABLED=true
 AUTH_USERNAME=admin
 AUTH_PASSWORD=admin

@@ -98,12 +98,7 @@ class IndexService:
                         current_image = existing_images.get(discovered.relative_path)
                         modified_time = datetime.fromtimestamp(discovered.stat_result.st_mtime, tz=timezone.utc)
 
-                        if (
-                            current_image is not None
-                            and current_image.missing_at is None
-                            and current_image.file_size_bytes == int(discovered.stat_result.st_size)
-                            and current_image.modified_time == modified_time
-                        ):
+                        if current_image is not None and self._is_unchanged(current_image, discovered, modified_time):
                             result.skipped += 1
                             continue
 
@@ -177,6 +172,18 @@ class IndexService:
             for pair in extracted.metadata_pairs
         )
         return image
+
+    def _is_unchanged(self, image: Image, discovered: DiscoveredFile, modified_time: datetime) -> bool:
+        if image.missing_at is not None:
+            return False
+        if image.file_size_bytes != int(discovered.stat_result.st_size):
+            return False
+
+        stored_modified_time = image.modified_time
+        if stored_modified_time.tzinfo is None:
+            # SQLite returns naive datetimes even when SQLAlchemy is configured with timezone=True.
+            stored_modified_time = stored_modified_time.replace(tzinfo=timezone.utc)
+        return abs(stored_modified_time.timestamp() - modified_time.timestamp()) < 0.001
 
     def get_status(self, session: Session) -> dict[str, object]:
         counts = self.search_service.get_index_counts(session)

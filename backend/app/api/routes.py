@@ -22,6 +22,8 @@ from app.schemas import (
     PublicConfigResponse,
     SessionResponse,
     TreeResponse,
+    TrackedMetadataKeyRequest,
+    TrackedMetadataKeysResponse,
 )
 from app.services.filesystem import PathValidationError
 from app.services.search import SearchFilters
@@ -161,8 +163,9 @@ def list_images(
         page_size=page_size,
     )
     items, total = container.search_service.search_images(db, filters)
+    tracked_keys = container.search_service.get_tracked_metadata_keys(db)
     return ImageListResponse(
-        items=[container.search_service.to_image_summary(item) for item in items],
+        items=[container.search_service.to_image_summary(item, tracked_keys=tracked_keys) for item in items],
         total=total,
         page=filters.page,
         page_size=filters.page_size,
@@ -184,7 +187,8 @@ def get_image_detail(
     if container.settings.public_show_absolute_path:
         absolute_path = str(container.file_system_service.resolve_relative_path(image.relative_path, strict=True))
 
-    summary = container.search_service.to_image_summary(image)
+    tracked_keys = container.search_service.get_tracked_metadata_keys(db)
+    summary = container.search_service.to_image_summary(image, tracked_keys=tracked_keys)
     return ImageDetailResponse(
         **summary.model_dump(),
         format=image.format,
@@ -239,6 +243,18 @@ def get_metadata_keys(
     container: AppContainer = Depends(get_container),
 ) -> MetadataKeysResponse:
     return MetadataKeysResponse(keys=container.search_service.get_metadata_keys(db))
+
+
+@protected_router.get(
+    "/metadata/tracked-keys",
+    response_model=TrackedMetadataKeysResponse,
+    dependencies=[Depends(require_user)],
+)
+def get_tracked_metadata_keys(
+    db: Session = Depends(get_db),
+    container: AppContainer = Depends(get_container),
+) -> TrackedMetadataKeysResponse:
+    return TrackedMetadataKeysResponse(keys=container.search_service.get_tracked_metadata_keys(db))
 
 
 @protected_router.get("/metadata/facets", response_model=MetadataFacetsResponse, dependencies=[Depends(require_user)])
@@ -300,6 +316,40 @@ def trigger_rescan(container: AppContainer = Depends(get_container)) -> dict[str
             detail="이미 스캔 중이거나 너무 빠르게 재요청했습니다.",
         )
     return {"status": "accepted"}
+
+
+@admin_router.post(
+    "/tracked-metadata-keys",
+    response_model=TrackedMetadataKeysResponse,
+    dependencies=[Depends(require_admin)],
+)
+def add_tracked_metadata_key(
+    payload: TrackedMetadataKeyRequest,
+    db: Session = Depends(get_db),
+    container: AppContainer = Depends(get_container),
+) -> TrackedMetadataKeysResponse:
+    try:
+        keys = container.search_service.add_tracked_metadata_key(db, payload.key)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return TrackedMetadataKeysResponse(keys=keys)
+
+
+@admin_router.delete(
+    "/tracked-metadata-keys",
+    response_model=TrackedMetadataKeysResponse,
+    dependencies=[Depends(require_admin)],
+)
+def remove_tracked_metadata_key(
+    payload: TrackedMetadataKeyRequest,
+    db: Session = Depends(get_db),
+    container: AppContainer = Depends(get_container),
+) -> TrackedMetadataKeysResponse:
+    try:
+        keys = container.search_service.remove_tracked_metadata_key(db, payload.key)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return TrackedMetadataKeysResponse(keys=keys)
 
 
 @admin_router.get("/index-status", response_model=IndexStatusResponse, dependencies=[Depends(require_user)])

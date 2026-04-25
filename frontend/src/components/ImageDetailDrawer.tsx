@@ -111,6 +111,19 @@ export function ImageDetailDrawer({
               </strong>
             </div>
           </div>
+          {Object.keys(image.tracked_metadata).length ? (
+            <section className="tracked-metadata-detail">
+              <h3>관리자 지정 메타데이터</h3>
+              <div className="tracked-metadata-detail-grid">
+                {Object.entries(image.tracked_metadata).map(([key, value]) => (
+                  <div key={key}>
+                    <span>{key}</span>
+                    <strong>{value ?? "null"}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
           {image.error_message ? <div className="error-box">{image.error_message}</div> : null}
           <MetadataTable metadata={image.metadata} />
         </>

@@ -45,6 +45,11 @@ export function ImageGrid({ items, loading, selectedImageId, thumbnailSize, onSe
             </p>
             <p>{formatDate(item.modified_time)}</p>
             <div className="metadata-summary">
+              {Object.entries(item.tracked_metadata).map(([key, value]) => (
+                <span key={`${item.id}-tracked-${key}`} className={`chip tracked-chip ${value === null ? "null" : ""}`}>
+                  {key}: {value ?? "null"}
+                </span>
+              ))}
               {item.metadata_summary.map((summary) => (
                 <span key={`${item.id}-${summary.key}`} className="chip">
                   {summary.key}: {summary.value}

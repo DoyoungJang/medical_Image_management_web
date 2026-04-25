@@ -10,7 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from app.core.config import Settings
-from app.models import Folder, Image, MetadataKV
+from app.models import Folder, Image, MetadataKV, TrackedMetadataKey
 from app.schemas import BreadcrumbItem, FacetCount, FolderNode, ImageSummaryResponse, MetadataSummaryItem
 
 
@@ -304,7 +304,8 @@ class SearchService:
             .options(selectinload(Image.metadata_entries))
             .order_by(Image.filename.asc())
         )
-        files = [self.to_image_summary(image) for image in session.execute(file_query).scalars().all()]
+        tracked_keys = self.get_tracked_metadata_keys(session)
+        files = [self.to_image_summary(image, tracked_keys=tracked_keys) for image in session.execute(file_query).scalars().all()]
         return folders, files, self._breadcrumbs(current_path)
 
     def _breadcrumbs(self, current_path: str) -> list[BreadcrumbItem]:
@@ -318,11 +319,12 @@ class SearchService:
             breadcrumbs.append(BreadcrumbItem(name=part, path=cumulative))
         return breadcrumbs
 
-    def to_image_summary(self, image: Image) -> ImageSummaryResponse:
+    def to_image_summary(self, image: Image, tracked_keys: list[str] | None = None) -> ImageSummaryResponse:
         metadata_summary = [
             MetadataSummaryItem(key=entry.key, value=entry.value_text)
             for entry in sorted(image.metadata_entries, key=lambda item: item.key)[:3]
         ]
+        tracked_metadata = self._tracked_metadata_for_image(image, tracked_keys or [])
         return ImageSummaryResponse(
             id=image.id,
             filename=image.filename,
@@ -336,7 +338,38 @@ class SearchService:
             status=image.status,
             has_alpha=image.has_alpha,
             metadata_summary=metadata_summary,
+            tracked_metadata=tracked_metadata,
         )
+
+    def _tracked_metadata_for_image(self, image: Image, tracked_keys: list[str]) -> dict[str, str | None]:
+        if not tracked_keys:
+            return {}
+
+        metadata_entries = list(image.metadata_entries)
+        result: dict[str, str | None] = {}
+        for tracked_key in tracked_keys:
+            values = self._metadata_values_for_key(metadata_entries, tracked_key)
+            result[tracked_key] = "; ".join(values) if values else None
+        return result
+
+    def _metadata_values_for_key(self, entries: list[MetadataKV], tracked_key: str) -> list[str]:
+        exact_matches = [entry.value_text for entry in entries if entry.key == tracked_key]
+        if exact_matches:
+            return self._dedupe_values(exact_matches)
+
+        preferred_prefixes = ("textual_metadata.", "xmp.fields.", "pillow_info.", "exif.")
+        preferred_matches: list[str] = []
+        for prefix in preferred_prefixes:
+            preferred_matches.extend(entry.value_text for entry in entries if entry.key == f"{prefix}{tracked_key}")
+        if preferred_matches:
+            return self._dedupe_values(preferred_matches)
+
+        suffix = f".{tracked_key}"
+        suffix_matches = [entry.value_text for entry in entries if entry.key.endswith(suffix)]
+        return self._dedupe_values(suffix_matches)
+
+    def _dedupe_values(self, values: list[str]) -> list[str]:
+        return list(dict.fromkeys(value for value in values if value))
 
     def get_metadata_keys(self, session: Session, limit: int = 100) -> list[str]:
         query = (
@@ -348,6 +381,34 @@ class SearchService:
             .limit(limit)
         )
         return [row[0] for row in session.execute(query).all()]
+
+    def get_tracked_metadata_keys(self, session: Session) -> list[str]:
+        query = select(TrackedMetadataKey.key).order_by(TrackedMetadataKey.key.asc())
+        return [row[0] for row in session.execute(query).all()]
+
+    def add_tracked_metadata_key(self, session: Session, key: str) -> list[str]:
+        normalized_key = self._normalize_tracked_metadata_key(key)
+        existing = session.execute(
+            select(TrackedMetadataKey).where(TrackedMetadataKey.key == normalized_key)
+        ).scalar_one_or_none()
+        if existing is None:
+            session.add(TrackedMetadataKey(key=normalized_key))
+            session.commit()
+        return self.get_tracked_metadata_keys(session)
+
+    def remove_tracked_metadata_key(self, session: Session, key: str) -> list[str]:
+        normalized_key = self._normalize_tracked_metadata_key(key)
+        session.execute(delete(TrackedMetadataKey).where(TrackedMetadataKey.key == normalized_key))
+        session.commit()
+        return self.get_tracked_metadata_keys(session)
+
+    def _normalize_tracked_metadata_key(self, key: str) -> str:
+        normalized_key = key.strip()
+        if not normalized_key:
+            raise ValueError("Metadata key is required.")
+        if len(normalized_key) > 255:
+            raise ValueError("Metadata key is too long.")
+        return normalized_key
 
     def get_metadata_facets(self, session: Session, filters: SearchFilters) -> tuple[list[FacetCount], list[FacetCount], list[FacetCount]]:
         filtered_ids = self._filtered_image_ids_subquery(filters)

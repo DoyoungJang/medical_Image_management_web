@@ -8,6 +8,24 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
+DEFAULT_SUPPORTED_IMAGE_EXTENSIONS = [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".jpe",
+    ".jfif",
+    ".bmp",
+    ".gif",
+    ".tif",
+    ".tiff",
+    ".webp",
+    ".ico",
+    ".jp2",
+    ".j2k",
+    ".tga",
+]
+
+
 class Settings(BaseSettings):
     app_name: str = "이미지 탐색기"
     environment: Literal["development", "test", "production"] = "development"
@@ -23,7 +41,7 @@ class Settings(BaseSettings):
     public_show_absolute_path: bool = False
     enable_watchdog: bool = False
     use_fts5: bool = True
-    supported_image_extensions: Annotated[list[str], NoDecode] = Field(default_factory=lambda: [".png", ".jpg", ".jpeg", ".bmp"])
+    supported_image_extensions: Annotated[list[str], NoDecode] = Field(default_factory=lambda: DEFAULT_SUPPORTED_IMAGE_EXTENSIONS.copy())
 
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
@@ -74,7 +92,7 @@ class Settings(BaseSettings):
     @classmethod
     def parse_supported_image_extensions(cls, value: Any) -> list[str]:
         if value is None or value == "":
-            return [".png", ".jpg", ".jpeg", ".bmp"]
+            return DEFAULT_SUPPORTED_IMAGE_EXTENSIONS.copy()
         if isinstance(value, list):
             items = value
         elif isinstance(value, str):

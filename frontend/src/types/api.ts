@@ -32,6 +32,8 @@ export interface MetadataSummaryItem {
   value: string;
 }
 
+export type TrackedMetadata = Record<string, string | null>;
+
 export interface ImageSummary {
   id: number;
   filename: string;
@@ -45,6 +47,7 @@ export interface ImageSummary {
   status: string;
   has_alpha: boolean | null;
   metadata_summary: MetadataSummaryItem[];
+  tracked_metadata: TrackedMetadata;
 }
 
 export interface ImageDetail extends ImageSummary {
@@ -85,6 +88,10 @@ export interface MetadataFacetsResponse {
 }
 
 export interface MetadataKeysResponse {
+  keys: string[];
+}
+
+export interface TrackedMetadataKeysResponse {
   keys: string[];
 }
 

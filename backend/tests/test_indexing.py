@@ -15,8 +15,12 @@ def test_recursive_scan_indexes_nested_directories(scanned_client) -> None:
         assert "nested/alpha.png" in relative_paths
         assert "nested/deeper/deep.png" in relative_paths
         assert "photo.jpg" in relative_paths
+        assert "jpeg-disguised-as-png.png" in relative_paths
         assert "nested/scan.jpeg" in relative_paths
         assert "nested/bitmap.bmp" in relative_paths
+        assert "animated.gif" in relative_paths
+        assert "nested/slice.tiff" in relative_paths
+        assert "nested/preview.webp" in relative_paths
 
 
 def test_incremental_reindex_updates_modified_file(scanned_client, test_paths: dict[str, Path]) -> None:
@@ -31,6 +35,16 @@ def test_incremental_reindex_updates_modified_file(scanned_client, test_paths: d
         image = session.execute(select(Image).where(Image.relative_path == "plain.png")).scalar_one()
         assert image.file_size_bytes != original_size
         assert image.status in {"ok", "unreadable", "corrupted"}
+
+
+def test_incremental_reindex_skips_unchanged_files(scanned_client) -> None:
+    container = scanned_client.app.state.container
+
+    result = container.index_service.scan_now(reason="unchanged")
+
+    assert result.updated == 0
+    assert result.missing_marked == 0
+    assert result.scanned == result.skipped
 
 
 def test_missing_file_is_marked_missing(scanned_client, test_paths: dict[str, Path]) -> None:
