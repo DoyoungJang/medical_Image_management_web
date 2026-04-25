@@ -8,6 +8,7 @@ from app.services.auth import AuthService
 from app.services.filesystem import FileSystemService
 from app.services.indexing import IndexService
 from app.services.metadata import MetadataExtractor
+from app.services.periodic_scan import PeriodicScanService
 from app.services.search import SearchService
 from app.services.thumbnails import ThumbnailService
 from app.services.watch import WatchService
@@ -32,6 +33,7 @@ class AppContainer:
         )
         self.auth_service = AuthService(settings)
         self.watch_service = WatchService(settings, self.index_service)
+        self.periodic_scan_service = PeriodicScanService(settings, self.index_service)
 
     def initialize(self) -> None:
         self.file_system_service.ensure_roots()
@@ -41,9 +43,10 @@ class AppContainer:
     def start_background_services(self) -> None:
         if self.settings.auto_scan_on_startup:
             self.index_service.trigger_background_scan(reason="startup")
+        self.periodic_scan_service.start()
         if self.settings.enable_watchdog:
             self.watch_service.start(self.file_system_service.root_path)
 
     def stop_background_services(self) -> None:
+        self.periodic_scan_service.stop()
         self.watch_service.stop()
-

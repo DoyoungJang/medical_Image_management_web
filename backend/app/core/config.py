@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./png_browser.db"
 
     auto_scan_on_startup: bool = False
+    periodic_scan_interval_seconds: int = 300
     allow_symlinks: bool = False
     public_show_absolute_path: bool = False
     enable_watchdog: bool = False

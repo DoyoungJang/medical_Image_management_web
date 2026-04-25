@@ -391,6 +391,17 @@ select:focus {
   font-weight: 800;
 }
 
+.tree-empty-state {
+  margin-top: 0.8rem;
+  padding: 0.9rem;
+  border-radius: 18px;
+  background: var(--surface-blue);
+  color: var(--blue-strong);
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
 .search-panel {
   display: grid;
   gap: 1rem;

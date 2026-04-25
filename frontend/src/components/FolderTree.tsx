@@ -53,6 +53,9 @@ function FolderBranch({
 
 export function FolderTree({ treeCache, selectedPath, expandedPaths, onSelect, onToggle }: FolderTreeProps) {
   const root = treeCache[""];
+  const rootTotalCount =
+    (root?.files.length ?? 0) + (root?.folders.reduce((total, folder) => total + folder.descendant_file_count, 0) ?? 0);
+  const rootIsEmpty = root !== undefined && root.files.length === 0 && root.folders.length === 0;
 
   return (
     <div className="panel tree-panel">
@@ -66,9 +69,14 @@ export function FolderTree({ treeCache, selectedPath, expandedPaths, onSelect, o
         </button>
         <button className="folder-button" onClick={() => onSelect("")}>
           <span className="folder-name">루트</span>
-          <span className="folder-count">{root?.files.length ?? 0}</span>
+          <span className="folder-count">{rootTotalCount}</span>
         </button>
       </div>
+      {rootIsEmpty ? (
+        <div className="tree-empty-state">
+          인덱싱된 PNG가 없습니다. PNG를 추가한 뒤 관리자 화면에서 수동 재스캔을 실행해 주세요.
+        </div>
+      ) : null}
       <div className="folder-list">
         {expandedPaths.has("") &&
           (root?.folders ?? []).map((folder) => (

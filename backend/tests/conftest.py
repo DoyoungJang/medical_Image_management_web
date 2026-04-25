@@ -56,6 +56,7 @@ def settings(test_paths: dict[str, Path]) -> Settings:
         thumbnail_cache_dir=str(test_paths["thumbnail_cache"]),
         database_url=f"sqlite:///{test_paths['database_path'].as_posix()}",
         auto_scan_on_startup=False,
+        periodic_scan_interval_seconds=0,
         auth_enabled=True,
         auth_username="admin",
         auth_password_hash=password_hash,
