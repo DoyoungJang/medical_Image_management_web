@@ -65,8 +65,14 @@ class SearchService:
         except SQLAlchemyError:
             self._fts_enabled = False
 
-    def rebuild_search_indexes(self, session: Session, *, indexed_at: datetime) -> None:
-        self._rebuild_folder_table(session, indexed_at=indexed_at)
+    def rebuild_search_indexes(
+        self,
+        session: Session,
+        *,
+        indexed_at: datetime,
+        folder_paths: set[str] | None = None,
+    ) -> None:
+        self._rebuild_folder_table(session, indexed_at=indexed_at, folder_paths=folder_paths or set())
         if self._fts_enabled:
             session.execute(text("DELETE FROM images_fts"))
             session.execute(
@@ -80,21 +86,18 @@ class SearchService:
                 )
             )
 
-    def _rebuild_folder_table(self, session: Session, *, indexed_at: datetime) -> None:
+    def _rebuild_folder_table(self, session: Session, *, indexed_at: datetime, folder_paths: set[str]) -> None:
         active_images = session.execute(
             select(Image.relative_path, Image.directory).where(Image.missing_at.is_(None))
         ).all()
 
-        stats: dict[str, dict[str, Any]] = {
-            "": {
-                "name": "",
-                "parent_path": "",
-                "direct_file_count": 0,
-                "descendant_file_count": 0,
-            }
-        }
+        stats: dict[str, dict[str, Any]] = {}
+        self._ensure_folder_stat(stats, "")
 
-        for relative_path, directory in active_images:
+        for folder_path in sorted(folder_paths):
+            self._ensure_folder_stat(stats, folder_path)
+
+        for _relative_path, directory in active_images:
             stats[""]["descendant_file_count"] += 1
             if not directory:
                 stats[""]["direct_file_count"] += 1
@@ -103,17 +106,8 @@ class SearchService:
             parts = [part for part in directory.split("/") if part]
             current_path = ""
             for index, part in enumerate(parts):
-                parent_path = current_path
                 current_path = part if not current_path else f"{current_path}/{part}"
-                item = stats.setdefault(
-                    current_path,
-                    {
-                        "name": part,
-                        "parent_path": parent_path,
-                        "direct_file_count": 0,
-                        "descendant_file_count": 0,
-                    },
-                )
+                item = self._ensure_folder_stat(stats, current_path)
                 item["descendant_file_count"] += 1
                 if index == len(parts) - 1:
                     item["direct_file_count"] += 1
@@ -131,6 +125,36 @@ class SearchService:
             for relative_path, values in stats.items()
         ]
         session.add_all(folders)
+
+    def _ensure_folder_stat(self, stats: dict[str, dict[str, Any]], relative_path: str) -> dict[str, Any]:
+        normalized = relative_path.strip("/")
+        if normalized in {"", "."}:
+            return stats.setdefault(
+                "",
+                {
+                    "name": "",
+                    "parent_path": "",
+                    "direct_file_count": 0,
+                    "descendant_file_count": 0,
+                },
+            )
+
+        parts = [part for part in normalized.split("/") if part]
+        current_path = ""
+        current_item = stats[""]
+        for part in parts:
+            parent_path = current_path
+            current_path = part if not current_path else f"{current_path}/{part}"
+            current_item = stats.setdefault(
+                current_path,
+                {
+                    "name": part,
+                    "parent_path": parent_path,
+                    "direct_file_count": 0,
+                    "descendant_file_count": 0,
+                },
+            )
+        return current_item
 
     def get_image(self, session: Session, image_id: int) -> Image | None:
         statement = (

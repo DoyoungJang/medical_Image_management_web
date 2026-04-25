@@ -39,6 +39,8 @@ def create_test_png_tree(root: Path) -> None:
     _create_image(root / "nested" / "scan.jpeg", size=(90, 45), color=(230, 210, 30), image_format="JPEG")
     _create_image(root / "nested" / "bitmap.bmp", size=(32, 24), color=(120, 40, 180), image_format="BMP")
     (root / "broken.png").write_bytes(b"\x89PNG\r\n\x1a\n" + zlib.compress(b"not-a-real-png"))
+    (root / "empty-top").mkdir()
+    (root / "empty-parent" / "child").mkdir(parents=True)
 
 
 @pytest.fixture()

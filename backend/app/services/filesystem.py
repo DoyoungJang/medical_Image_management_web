@@ -19,6 +19,12 @@ class DiscoveredFile:
     stat_result: os.stat_result
 
 
+@dataclass(slots=True)
+class DiscoveredDirectory:
+    relative_path: str
+    absolute_path: Path
+
+
 class FileSystemService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -98,6 +104,40 @@ class FileSystemService:
 
     def iter_png_files(self) -> Iterator[DiscoveredFile]:
         yield from self.iter_image_files()
+
+    def iter_directories(self) -> Iterator[DiscoveredDirectory]:
+        yield DiscoveredDirectory(relative_path="", absolute_path=self.root_path)
+        yield from self._iter_directories(self.root_path, "", {self.root_path})
+
+    def _iter_directories(
+        self,
+        current_path: Path,
+        relative_dir: str,
+        visited: set[Path],
+    ) -> Iterator[DiscoveredDirectory]:
+        entries = sorted(os.scandir(current_path), key=lambda entry: entry.name.lower())
+        for entry in entries:
+            if entry.is_symlink() and not self.settings.allow_symlinks:
+                continue
+            if not entry.is_dir(follow_symlinks=self.settings.allow_symlinks):
+                continue
+
+            entry_path = Path(entry.path)
+            relative_path = f"{relative_dir}/{entry.name}" if relative_dir else entry.name
+            normalized_relative = relative_path.replace("\\", "/")
+
+            try:
+                resolved_dir = entry_path.resolve(strict=True)
+            except FileNotFoundError:
+                continue
+            if not self._is_within_root(resolved_dir):
+                continue
+            if resolved_dir in visited:
+                continue
+
+            visited.add(resolved_dir)
+            yield DiscoveredDirectory(relative_path=normalized_relative, absolute_path=entry_path)
+            yield from self._iter_directories(entry_path, normalized_relative, visited)
 
     def _iter_directory(self, current_path: Path, relative_dir: str) -> Iterator[DiscoveredFile]:
         entries = sorted(os.scandir(current_path), key=lambda entry: (not entry.is_dir(follow_symlinks=False), entry.name.lower()))

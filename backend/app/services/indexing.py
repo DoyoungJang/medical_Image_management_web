@@ -88,6 +88,9 @@ class IndexService:
                         ).scalars()
                     }
 
+                    discovered_directories = {
+                        discovered.relative_path for discovered in self.file_system_service.iter_directories()
+                    }
                     seen_paths: set[str] = set()
                     for discovered in self.file_system_service.iter_image_files():
                         seen_paths.add(discovered.relative_path)
@@ -124,7 +127,11 @@ class IndexService:
                         result.missing_marked += 1
 
                     session.flush()
-                    self.search_service.rebuild_search_indexes(session, indexed_at=finished_at)
+                    self.search_service.rebuild_search_indexes(
+                        session,
+                        indexed_at=finished_at,
+                        folder_paths=discovered_directories,
+                    )
                     session.commit()
             finally:
                 with self._state_lock:

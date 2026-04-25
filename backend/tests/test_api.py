@@ -42,6 +42,20 @@ def test_tree_endpoint_returns_breadcrumbs_and_files(scanned_client) -> None:
     assert any(item["filename"] == "alpha.png" for item in payload["files"])
 
 
+def test_tree_endpoint_includes_empty_storage_folders(scanned_client) -> None:
+    root_response = scanned_client.get("/api/tree")
+    assert root_response.status_code == 200
+    root_payload = root_response.json()
+    root_folder_names = {folder["name"] for folder in root_payload["folders"]}
+    assert "empty-parent" in root_folder_names
+    assert "empty-top" in root_folder_names
+
+    child_response = scanned_client.get("/api/tree", params={"path": "empty-parent"})
+    assert child_response.status_code == 200
+    child_payload = child_response.json()
+    assert any(folder["name"] == "child" and folder["descendant_file_count"] == 0 for folder in child_payload["folders"])
+
+
 def test_image_search_finds_filename_path_and_metadata(scanned_client) -> None:
     filename_response = scanned_client.get("/api/images", params={"q": "plain"})
     metadata_response = scanned_client.get("/api/images", params={"q": "홍길동"})
