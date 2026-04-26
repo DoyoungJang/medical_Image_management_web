@@ -76,6 +76,10 @@ class TreeResponse(BaseModel):
     files: list[ImageSummaryResponse]
 
 
+class FolderRescanRequest(BaseModel):
+    path: str = ""
+
+
 class MetadataKeysResponse(BaseModel):
     keys: list[str]
 
@@ -115,6 +119,8 @@ class MetadataFacetsResponse(BaseModel):
 
 class IndexStatusResponse(BaseModel):
     scanning: bool
+    current_reason: str | None = None
+    current_target_path: str | None = None
     last_started_at: datetime | None
     last_finished_at: datetime | None
     last_result: dict[str, Any] | None

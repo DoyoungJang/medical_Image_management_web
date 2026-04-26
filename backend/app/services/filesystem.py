@@ -123,8 +123,12 @@ class FileSystemService:
         except ValueError:
             return False
 
-    def iter_image_files(self) -> Iterator[DiscoveredFile]:
-        yield from self._iter_directory(self.root_path, "")
+    def iter_image_files(self, relative_path: str = "") -> Iterator[DiscoveredFile]:
+        normalized_path = self.normalize_relative_path(relative_path)
+        start_path = self.resolve_relative_path(normalized_path, strict=True)
+        if not start_path.is_dir():
+            raise NotADirectoryError(f"스캔 대상이 디렉터리가 아닙니다: {normalized_path or '루트'}")
+        yield from self._iter_directory(start_path, normalized_path)
 
     def iter_png_files(self) -> Iterator[DiscoveredFile]:
         yield from self.iter_image_files()

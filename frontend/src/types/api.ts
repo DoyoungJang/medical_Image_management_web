@@ -106,6 +106,8 @@ export interface AdminImageRootResponse {
 
 export interface IndexStatusResponse {
   scanning: boolean;
+  current_reason?: string | null;
+  current_target_path?: string | null;
   last_started_at?: string | null;
   last_finished_at?: string | null;
   last_result?: Record<string, unknown> | null;

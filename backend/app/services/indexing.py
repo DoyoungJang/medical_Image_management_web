@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from app.core.config import Settings
@@ -19,6 +19,7 @@ from app.services.search import SearchService
 @dataclass(slots=True)
 class ScanResult:
     reason: str
+    target_path: str
     scanned: int
     updated: int
     skipped: int
@@ -48,8 +49,11 @@ class IndexService:
         self._last_started_at: datetime | None = None
         self._last_finished_at: datetime | None = None
         self._last_result: dict[str, object] | None = None
+        self._current_reason: str | None = None
+        self._current_target_path: str | None = None
 
-    def trigger_background_scan(self, *, reason: str) -> bool:
+    def trigger_background_scan(self, *, reason: str, target_path: str = "") -> bool:
+        normalized_target_path = self.file_system_service.normalize_relative_path(target_path)
         with self._state_lock:
             if self._scanning:
                 return False
@@ -62,8 +66,14 @@ class IndexService:
                 return False
             self._scanning = True
             self._last_started_at = now
+            self._current_reason = reason
+            self._current_target_path = normalized_target_path
 
-        thread = threading.Thread(target=self._run_scan, kwargs={"reason": reason}, daemon=True)
+        thread = threading.Thread(
+            target=self._run_scan,
+            kwargs={"reason": reason, "target_path": normalized_target_path},
+            daemon=True,
+        )
         thread.start()
         return True
 
@@ -71,25 +81,36 @@ class IndexService:
         with self._state_lock:
             return self._scanning
 
-    def scan_now(self, *, reason: str) -> ScanResult:
+    def scan_now(self, *, reason: str, target_path: str = "") -> ScanResult:
+        normalized_target_path = self.file_system_service.normalize_relative_path(target_path)
         with self._state_lock:
             self._scanning = True
             self._last_started_at = datetime.now(tz=timezone.utc)
-        return self._execute_scan(reason=reason)
+            self._current_reason = reason
+            self._current_target_path = normalized_target_path
+        return self._execute_scan(reason=reason, target_path=normalized_target_path)
 
-    def _run_scan(self, *, reason: str) -> None:
-        self._execute_scan(reason=reason)
+    def _run_scan(self, *, reason: str, target_path: str = "") -> None:
+        self._execute_scan(reason=reason, target_path=target_path)
 
-    def _execute_scan(self, *, reason: str) -> ScanResult:
+    def _execute_scan(self, *, reason: str, target_path: str = "") -> ScanResult:
         with self._scan_lock:
-            result = ScanResult(reason=reason, scanned=0, updated=0, skipped=0, missing_marked=0, errors=0)
+            result = ScanResult(
+                reason=reason,
+                target_path=target_path,
+                scanned=0,
+                updated=0,
+                skipped=0,
+                missing_marked=0,
+                errors=0,
+            )
             finished_at = datetime.now(tz=timezone.utc)
             try:
                 with self.session_factory() as session:
                     existing_images = {
                         image.relative_path: image
                         for image in session.execute(
-                            select(Image).options(selectinload(Image.metadata_entries))
+                            self._existing_images_statement(target_path).options(selectinload(Image.metadata_entries))
                         ).scalars()
                     }
 
@@ -97,7 +118,7 @@ class IndexService:
                         discovered.relative_path for discovered in self.file_system_service.iter_directories()
                     }
                     seen_paths: set[str] = set()
-                    for discovered in self.file_system_service.iter_image_files():
+                    for discovered in self.file_system_service.iter_image_files(target_path):
                         seen_paths.add(discovered.relative_path)
                         result.scanned += 1
                         current_image = existing_images.get(discovered.relative_path)
@@ -140,7 +161,15 @@ class IndexService:
                     self._scanning = False
                     self._last_finished_at = finished_at
                     self._last_result = asdict(result)
+                    self._current_reason = None
+                    self._current_target_path = None
             return result
+
+    def _existing_images_statement(self, target_path: str):
+        statement = select(Image)
+        if not target_path:
+            return statement
+        return statement.where(or_(Image.relative_path == target_path, Image.relative_path.like(f"{target_path}/%")))
 
     def _upsert_image(self, session: Session, current_image: Image | None, extracted: ExtractedMetadata) -> Image:
         now = datetime.now(tz=timezone.utc)
@@ -222,6 +251,8 @@ class IndexService:
         with self._state_lock:
             return {
                 "scanning": self._scanning,
+                "current_reason": self._current_reason,
+                "current_target_path": self._current_target_path,
                 "last_started_at": self._last_started_at,
                 "last_finished_at": self._last_finished_at,
                 "last_result": self._last_result,

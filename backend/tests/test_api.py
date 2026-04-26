@@ -57,6 +57,51 @@ def test_manual_rescan_requires_admin_account(client, monkeypatch) -> None:
     assert trigger_calls == ["manual"]
 
 
+def test_authenticated_user_can_request_folder_rescan(client, monkeypatch) -> None:
+    container = client.app.state.container
+    trigger_calls = []
+    monkeypatch.setattr(
+        container.index_service,
+        "trigger_background_scan",
+        lambda *, reason, target_path="": trigger_calls.append((reason, target_path)) or True,
+    )
+    viewer_token = container.auth_service.create_session_token("viewer")
+    client.cookies.set(container.settings.auth_cookie_name, viewer_token)
+
+    response = client.post("/api/folders/rescan", json={"path": "nested"})
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "accepted", "path": "nested"}
+    assert trigger_calls == [("folder", "nested")]
+
+
+def test_folder_rescan_reports_conflict_when_any_scan_is_running(authenticated_client, monkeypatch) -> None:
+    container = authenticated_client.app.state.container
+    monkeypatch.setattr(container.index_service, "trigger_background_scan", lambda *, reason, target_path="": False)
+
+    response = authenticated_client.post("/api/folders/rescan", json={"path": "nested"})
+
+    assert response.status_code == 409
+    assert "스캔" in response.json()["detail"]
+
+
+def test_folder_scan_marks_missing_only_inside_target_folder(scanned_client, test_paths: dict[str, Path]) -> None:
+    container = scanned_client.app.state.container
+    (test_paths["png_root"] / "nested" / "deeper" / "deep.png").unlink()
+    (test_paths["png_root"] / "plain.png").unlink()
+
+    result = container.index_service.scan_now(reason="folder-test", target_path="nested")
+
+    assert result.target_path == "nested"
+    assert result.missing_marked >= 1
+
+    plain_response = scanned_client.get("/api/images", params={"q": "plain"})
+    deep_response = scanned_client.get("/api/images", params={"q": "deep"})
+
+    assert any(item["filename"] == "plain.png" for item in plain_response.json()["items"])
+    assert not deep_response.json()["items"]
+
+
 def test_image_root_config_requires_admin_account(client, tmp_path: Path) -> None:
     container = client.app.state.container
     viewer_token = container.auth_service.create_session_token("viewer")

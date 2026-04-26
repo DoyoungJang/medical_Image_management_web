@@ -14,6 +14,7 @@ from app.dependencies import get_container, get_db
 from app.schemas import (
     AdminImageRootResponse,
     AdminImageRootUpdateRequest,
+    FolderRescanRequest,
     HealthResponse,
     ImageDetailResponse,
     ImageListResponse,
@@ -307,6 +308,28 @@ def get_metadata_facets(
         directory_counts=directory_counts,
         common_metadata_keys=common_metadata_keys,
     )
+
+
+@protected_router.post("/folders/rescan", dependencies=[Depends(require_user)])
+def trigger_folder_rescan(
+    payload: FolderRescanRequest,
+    container: AppContainer = Depends(get_container),
+) -> dict[str, str]:
+    try:
+        normalized_path = container.file_system_service.normalize_relative_path(payload.path)
+        target_path = container.file_system_service.resolve_relative_path(normalized_path, strict=True)
+    except (FileNotFoundError, PathValidationError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if not target_path.is_dir():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="폴더만 스캔할 수 있습니다.")
+
+    accepted = container.index_service.trigger_background_scan(reason="folder", target_path=normalized_path)
+    if not accepted:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="다른 사용자의 스캔 또는 관리자 스캔이 이미 진행 중입니다. 완료 후 다시 시도하세요.",
+        )
+    return {"status": "accepted", "path": normalized_path}
 
 
 @admin_router.post("/rescan", dependencies=[Depends(require_admin)])

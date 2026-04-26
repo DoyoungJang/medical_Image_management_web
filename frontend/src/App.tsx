@@ -33,6 +33,7 @@ import {
   login,
   logout,
   removeTrackedMetadataKey,
+  triggerFolderRescan,
   triggerRescan,
   updateAdminImageRoot,
 } from "./utils/api";
@@ -128,10 +129,12 @@ export default function App() {
   const [imageRootConfig, setImageRootConfig] = useState<AdminImageRootResponse | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [rescanning, setRescanning] = useState(false);
+  const [folderRescanning, setFolderRescanning] = useState(false);
   const [rootUpdating, setRootUpdating] = useState(false);
 
   const activeTree = treeCache[selectedPath];
   const breadcrumbs = activeTree?.breadcrumbs ?? [{ name: "루트", path: "" }];
+  const scanTargetLabel = indexStatus?.current_target_path ? indexStatus.current_target_path : "루트";
 
   const canBrowse = config !== null && (config.auth_enabled ? session?.authenticated : true);
   const isAdmin = session?.is_admin === true;
@@ -254,6 +257,33 @@ export default function App() {
   }, [canBrowse]);
 
   useEffect(() => {
+    if (!canBrowse || !indexStatus?.last_finished_at) {
+      return;
+    }
+
+    const refreshAfterScan = async () => {
+      try {
+        const params = buildSearchParams(filters);
+        const [rootTree, currentTree, imageResponse, facetsResponse, metadataKeysResponse] = await Promise.all([
+          fetchTree(""),
+          fetchTree(selectedPath),
+          fetchImages(params),
+          fetchFacets(new URLSearchParams()),
+          fetchMetadataKeys(),
+        ]);
+        setTreeCache((previous) => ({ ...previous, "": rootTree, [selectedPath]: currentTree }));
+        setImages(imageResponse);
+        setFacets(facetsResponse);
+        setMetadataKeys(metadataKeysResponse.keys);
+      } catch {
+        // A scan finishing should not interrupt browsing; explicit actions still surface errors.
+      }
+    };
+
+    void refreshAfterScan();
+  }, [canBrowse, indexStatus?.last_finished_at]);
+
+  useEffect(() => {
     if (!selectedImageId || !canBrowse) {
       setSelectedImage(null);
       return;
@@ -355,6 +385,20 @@ export default function App() {
       setError(rescanError instanceof Error ? rescanError.message : "재스캔 요청에 실패했습니다.");
     } finally {
       setRescanning(false);
+    }
+  };
+
+  const handleFolderRescan = async () => {
+    setFolderRescanning(true);
+    setError("");
+    try {
+      await triggerFolderRescan(selectedPath);
+      const refreshedStatus = await fetchIndexStatus();
+      setIndexStatus(refreshedStatus);
+    } catch (scanError) {
+      setError(scanError instanceof Error ? scanError.message : "현재 폴더 재스캔 요청에 실패했습니다.");
+    } finally {
+      setFolderRescanning(false);
     }
   };
 
@@ -497,6 +541,18 @@ export default function App() {
                 </p>
               </div>
               <div className="pagination">
+                {indexStatus?.scanning ? <span className="scan-badge">스캔 진행 중: {scanTargetLabel}</span> : null}
+                <button
+                  className="secondary"
+                  disabled={folderRescanning || Boolean(indexStatus?.scanning)}
+                  onClick={() => void handleFolderRescan()}
+                >
+                  {folderRescanning
+                    ? "폴더 스캔 요청 중"
+                    : indexStatus?.scanning
+                      ? "스캔 진행 중"
+                      : "현재 폴더 스캔"}
+                </button>
                 <label className="page-size-control">
                   <span>표시 개수</span>
                   <input

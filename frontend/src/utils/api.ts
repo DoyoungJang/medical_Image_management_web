@@ -126,6 +126,13 @@ export async function triggerRescan(): Promise<{ status: string }> {
   return request<{ status: string }>("/admin/rescan", { method: "POST" });
 }
 
+export async function triggerFolderRescan(path: string): Promise<{ status: string; path: string }> {
+  return request<{ status: string; path: string }>("/folders/rescan", {
+    method: "POST",
+    body: JSON.stringify({ path }),
+  });
+}
+
 export function imageThumbnailUrl(imageId: number, size: number): string {
   const params = new URLSearchParams({ size: String(size) });
   return `${API_BASE}/images/${imageId}/thumbnail?${params.toString()}`;
