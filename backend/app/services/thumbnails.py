@@ -29,8 +29,9 @@ class ThumbnailService:
     def get_thumbnail_path(self, image: ImageModel, size: int) -> Path:
         bounded_size = min(max(size, 32), self.settings.thumbnail_max_size)
         source_path = self.file_system_service.resolve_relative_path(image.relative_path, strict=True)
+        source_identity = image.content_hash or image.modified_time.isoformat()
         cache_key = hashlib.sha256(
-            f"{image.relative_path}|{image.modified_time.isoformat()}|{bounded_size}".encode("utf-8")
+            f"{image.relative_path}|{source_identity}|{bounded_size}".encode("utf-8")
         ).hexdigest()
         cache_dir = self.file_system_service.thumbnail_cache_path / cache_key[:2]
         cache_dir.mkdir(parents=True, exist_ok=True)

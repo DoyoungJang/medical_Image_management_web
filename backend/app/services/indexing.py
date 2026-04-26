@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from app.core.config import Settings
@@ -66,6 +66,10 @@ class IndexService:
         thread = threading.Thread(target=self._run_scan, kwargs={"reason": reason}, daemon=True)
         thread.start()
         return True
+
+    def is_scanning(self) -> bool:
+        with self._state_lock:
+            return self._scanning
 
     def scan_now(self, *, reason: str) -> ScanResult:
         with self._state_lock:
@@ -200,6 +204,18 @@ class IndexService:
             for chunk in iter(lambda: file.read(1024 * 1024), b""):
                 digest.update(chunk)
         return digest.hexdigest()
+
+    def mark_all_active_missing(self) -> int:
+        indexed_at = datetime.now(tz=timezone.utc)
+        with self.session_factory() as session:
+            result = session.execute(
+                update(Image)
+                .where(Image.missing_at.is_(None))
+                .values(missing_at=indexed_at, status="missing", indexed_at=indexed_at)
+            )
+            self.search_service.rebuild_search_indexes(session, indexed_at=indexed_at, folder_paths={""})
+            session.commit()
+            return int(result.rowcount or 0)
 
     def get_status(self, session: Session) -> dict[str, object]:
         counts = self.search_service.get_index_counts(session)

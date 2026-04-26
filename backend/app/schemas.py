@@ -88,6 +88,20 @@ class TrackedMetadataKeyRequest(BaseModel):
     key: str = Field(min_length=1, max_length=255)
 
 
+class AdminImageRootResponse(BaseModel):
+    root_dir: str
+    env_root_dir: str
+    source: str
+    changed: bool = False
+    rescan_accepted: bool | None = None
+    missing_marked: int = 0
+
+
+class AdminImageRootUpdateRequest(BaseModel):
+    root_dir: str = Field(min_length=1, max_length=4096)
+    rescan: bool = True
+
+
 class FacetCount(BaseModel):
     key: str
     count: int

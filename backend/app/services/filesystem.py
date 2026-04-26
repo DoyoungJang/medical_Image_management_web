@@ -34,12 +34,36 @@ class FileSystemService:
 
     def ensure_roots(self) -> None:
         self.thumbnail_cache_path.mkdir(parents=True, exist_ok=True)
-        if not self.root_path.exists():
-            raise FileNotFoundError(f"PNG_ROOT_DIR가 존재하지 않습니다: {self.root_path}")
-        if not self.root_path.is_dir():
-            raise NotADirectoryError(f"PNG_ROOT_DIR가 디렉터리가 아닙니다: {self.root_path}")
-        self.root_path = self.root_path.resolve(strict=True)
         self.thumbnail_cache_path = self.thumbnail_cache_path.resolve(strict=True)
+        self.root_path = self.validate_root_path(str(self.root_path))
+        self.settings.png_root_dir = str(self.root_path)
+
+    def set_root_path(self, root_dir: str) -> Path:
+        self.root_path = Path(root_dir).expanduser()
+        self.ensure_roots()
+        return self.root_path
+
+    def validate_root_path(self, root_dir: str) -> Path:
+        cleaned = root_dir.strip()
+        if not cleaned:
+            raise ValueError("이미지 루트 경로를 입력하세요.")
+
+        root_path = Path(cleaned).expanduser()
+        if not root_path.exists():
+            raise FileNotFoundError(f"PNG_ROOT_DIR가 존재하지 않습니다: {root_path}")
+        if not root_path.is_dir():
+            raise NotADirectoryError(f"PNG_ROOT_DIR가 디렉터리가 아닙니다: {root_path}")
+
+        resolved_root = root_path.resolve(strict=True)
+        self._ensure_thumbnail_cache_outside_root(resolved_root)
+        return resolved_root
+
+    def _ensure_thumbnail_cache_outside_root(self, resolved_root: Path) -> None:
+        try:
+            self.thumbnail_cache_path.relative_to(resolved_root)
+        except ValueError:
+            return
+        raise ValueError("THUMBNAIL_CACHE_DIR는 이미지 루트 경로 밖에 있어야 합니다.")
 
     def normalize_relative_path(self, relative_path: str | None) -> str:
         if relative_path is None:

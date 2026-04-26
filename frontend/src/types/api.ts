@@ -95,6 +95,15 @@ export interface TrackedMetadataKeysResponse {
   keys: string[];
 }
 
+export interface AdminImageRootResponse {
+  root_dir: string;
+  env_root_dir: string;
+  source: "environment" | "database" | string;
+  changed: boolean;
+  rescan_accepted?: boolean | null;
+  missing_marked: number;
+}
+
 export interface IndexStatusResponse {
   scanning: boolean;
   last_started_at?: string | null;

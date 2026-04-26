@@ -52,6 +52,8 @@ New-Item -ItemType Directory -Force C:\png-browser-cache
 
 원본 이미지 파일은 `C:\data\company-png` 아래에 넣습니다. 기본 지원 확장자는 `.png`, `.jpg`, `.jpeg`, `.bmp`입니다. 애플리케이션은 이 디렉터리 밖의 파일을 탐색하지 않습니다.
 
+초기 실행 후 관리자 화면에서도 이미지 루트 경로를 변경할 수 있습니다. 관리자 화면에서 변경한 경로는 SQLite DB에 저장되어 재시작 후에도 유지됩니다.
+
 ### 1.4 백엔드 설치
 
 ```powershell
@@ -304,6 +306,8 @@ AUTH_PASSWORD_HASH=
 ```
 
 운영 서버에서는 `admin / admin`을 그대로 사용하지 말고, `AUTH_PASSWORD`를 더 강한 비밀번호로 바꾸거나 `AUTH_PASSWORD_HASH`를 사용하세요. `AUTH_PASSWORD_HASH`를 사용할 때는 평문 비밀번호 대신 bcrypt 해시를 넣습니다. 관리자 페이지의 수동 재스캔은 `AUTH_USERNAME`으로 설정된 관리자 계정만 실행할 수 있습니다.
+
+관리자 페이지의 `이미지 루트 경로`에서는 현재 탐색 루트도 변경할 수 있습니다. 변경한 경로는 환경변수 파일을 직접 수정하지 않고 SQLite DB의 런타임 설정으로 저장됩니다. 서버 재시작 후에도 관리자 설정이 우선 적용되며, 새 경로로 변경하면 기존 목록은 누락 처리되고 백그라운드 재스캔이 요청됩니다.
 
 ### Windows PowerShell
 

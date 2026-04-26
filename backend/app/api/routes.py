@@ -9,9 +9,11 @@ from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.container import AppContainer
+from app.container import AppContainer, RootPathUpdateError
 from app.dependencies import get_container, get_db
 from app.schemas import (
+    AdminImageRootResponse,
+    AdminImageRootUpdateRequest,
     HealthResponse,
     ImageDetailResponse,
     ImageListResponse,
@@ -316,6 +318,24 @@ def trigger_rescan(container: AppContainer = Depends(get_container)) -> dict[str
             detail="이미 스캔 중이거나 너무 빠르게 재요청했습니다.",
         )
     return {"status": "accepted"}
+
+
+@admin_router.get("/root", response_model=AdminImageRootResponse, dependencies=[Depends(require_admin)])
+def get_image_root(container: AppContainer = Depends(get_container)) -> AdminImageRootResponse:
+    return container.get_image_root_config()
+
+
+@admin_router.patch("/root", response_model=AdminImageRootResponse, dependencies=[Depends(require_admin)])
+def update_image_root(
+    payload: AdminImageRootUpdateRequest,
+    container: AppContainer = Depends(get_container),
+) -> AdminImageRootResponse:
+    try:
+        return container.update_image_root(payload.root_dir, rescan=payload.rescan)
+    except RootPathUpdateError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except (FileNotFoundError, NotADirectoryError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @admin_router.post(

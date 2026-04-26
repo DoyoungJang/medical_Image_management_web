@@ -8,6 +8,7 @@ import { ImageGrid } from "./components/ImageGrid";
 import { SearchBar } from "./components/SearchBar";
 import { useDebouncedValue } from "./hooks/useDebouncedValue";
 import type {
+  AdminImageRootResponse,
   ImageDetail,
   ImageListResponse,
   IndexStatusResponse,
@@ -19,6 +20,7 @@ import type {
 } from "./types/api";
 import {
   addTrackedMetadataKey,
+  fetchAdminImageRoot,
   fetchFacets,
   fetchImageDetail,
   fetchImages,
@@ -32,6 +34,7 @@ import {
   logout,
   removeTrackedMetadataKey,
   triggerRescan,
+  updateAdminImageRoot,
 } from "./utils/api";
 import { SORT_LABELS } from "./utils/labels";
 
@@ -131,8 +134,10 @@ export default function App() {
   const [trackedMetadataKeys, setTrackedMetadataKeys] = useState<string[]>([]);
   const [facets, setFacets] = useState<MetadataFacetsResponse | null>(null);
   const [indexStatus, setIndexStatus] = useState<IndexStatusResponse | null>(null);
+  const [imageRootConfig, setImageRootConfig] = useState<AdminImageRootResponse | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [rescanning, setRescanning] = useState(false);
+  const [rootUpdating, setRootUpdating] = useState(false);
 
   const activeTree = treeCache[selectedPath];
   const breadcrumbs = activeTree?.breadcrumbs ?? [{ name: "루트", path: "" }];
@@ -220,6 +225,10 @@ export default function App() {
         setTrackedMetadataKeys(trackedMetadataKeysResponse.keys);
         setFacets(facetsResponse);
         setIndexStatus(indexStatusResponse);
+        if (session?.is_admin === true) {
+          const rootResponse = await fetchAdminImageRoot();
+          setImageRootConfig(rootResponse);
+        }
       } catch (sidebarError) {
         setError(sidebarError instanceof Error ? sidebarError.message : "관리자 정보를 불러오지 못했습니다.");
       } finally {
@@ -227,7 +236,7 @@ export default function App() {
       }
     };
     void loadSidebarData();
-  }, [canBrowse]);
+  }, [canBrowse, session?.is_admin]);
 
   useEffect(() => {
     if (!canBrowse) {
@@ -299,6 +308,7 @@ export default function App() {
     await logout();
     setSession({ authenticated: false, is_admin: false });
     setSelectedImageId(null);
+    setImageRootConfig(null);
     navigate("browser");
   };
 
@@ -346,6 +356,36 @@ export default function App() {
       setError(rescanError instanceof Error ? rescanError.message : "재스캔 요청에 실패했습니다.");
     } finally {
       setRescanning(false);
+    }
+  };
+
+  const resetBrowserStateAfterRootChange = () => {
+    setTreeCache({});
+    setExpandedPaths(new Set([""]));
+    setSelectedPath("");
+    setSelectedImageId(null);
+    setSelectedImage(null);
+    setImages(null);
+    setFilters((current) => ({ ...DEFAULT_FILTERS, pageSize: current.pageSize }));
+  };
+
+  const handleUpdateImageRoot = async (rootDir: string) => {
+    setRootUpdating(true);
+    setError("");
+    try {
+      const response = await updateAdminImageRoot(rootDir);
+      setImageRootConfig(response);
+      resetBrowserStateAfterRootChange();
+      const refreshedStatus = await fetchIndexStatus();
+      setIndexStatus(refreshedStatus);
+      const rootTree = await fetchTree("");
+      setTreeCache({ "": rootTree });
+      return response;
+    } catch (rootError) {
+      setError(rootError instanceof Error ? rootError.message : "이미지 루트 경로 변경에 실패했습니다.");
+      throw rootError;
+    } finally {
+      setRootUpdating(false);
     }
   };
 
@@ -518,7 +558,10 @@ export default function App() {
           canRescan={canUseManualRescan(session)}
           metadataKeys={metadataKeys}
           trackedMetadataKeys={trackedMetadataKeys}
+          imageRootConfig={imageRootConfig}
+          rootUpdating={rootUpdating}
           onRescan={handleRescan}
+          onUpdateImageRoot={handleUpdateImageRoot}
           onAddTrackedMetadataKey={handleAddTrackedMetadataKey}
           onRemoveTrackedMetadataKey={handleRemoveTrackedMetadataKey}
         />

@@ -1,4 +1,5 @@
 import type {
+  AdminImageRootResponse,
   ImageDetail,
   ImageListResponse,
   IndexStatusResponse,
@@ -103,6 +104,17 @@ export async function removeTrackedMetadataKey(key: string): Promise<TrackedMeta
   return request<TrackedMetadataKeysResponse>("/admin/tracked-metadata-keys", {
     method: "DELETE",
     body: JSON.stringify({ key }),
+  });
+}
+
+export async function fetchAdminImageRoot(): Promise<AdminImageRootResponse> {
+  return request<AdminImageRootResponse>("/admin/root");
+}
+
+export async function updateAdminImageRoot(rootDir: string): Promise<AdminImageRootResponse> {
+  return request<AdminImageRootResponse>("/admin/root", {
+    method: "PATCH",
+    body: JSON.stringify({ root_dir: rootDir, rescan: true }),
   });
 }
 

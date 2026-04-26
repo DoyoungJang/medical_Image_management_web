@@ -74,5 +74,14 @@ class TrackedMetadataKey(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    value_text: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
 Index("ix_images_directory_filename", Image.directory, Image.filename)
 Index("ix_metadata_kv_key_value", MetadataKV.key, MetadataKV.value_text)

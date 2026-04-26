@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PIL import Image
+
 
 def test_root_endpoint_explains_backend_server(client) -> None:
     response = client.get("/")
@@ -53,6 +55,64 @@ def test_manual_rescan_requires_admin_account(client, monkeypatch) -> None:
     admin_rescan_response = client.post("/api/admin/rescan")
     assert admin_rescan_response.status_code == 200
     assert trigger_calls == ["manual"]
+
+
+def test_image_root_config_requires_admin_account(client, tmp_path: Path) -> None:
+    container = client.app.state.container
+    viewer_token = container.auth_service.create_session_token("viewer")
+    client.cookies.set(container.settings.auth_cookie_name, viewer_token)
+    next_root = tmp_path / "viewer-root"
+    next_root.mkdir()
+
+    get_response = client.get("/api/admin/root")
+    update_response = client.patch("/api/admin/root", json={"root_dir": str(next_root), "rescan": False})
+
+    assert get_response.status_code == 403
+    assert update_response.status_code == 403
+
+
+def test_admin_can_update_image_root_and_scan_new_folder(client, test_paths: dict[str, Path], tmp_path: Path) -> None:
+    login = client.post("/api/auth/login", json={"username": "admin", "password": "secret123"})
+    assert login.status_code == 200
+    new_root = tmp_path / "new-root"
+    new_root.mkdir()
+    Image.new("RGB", (16, 12), color=(10, 20, 30)).save(new_root / "new-root-image.png")
+
+    root_response = client.get("/api/admin/root")
+    assert root_response.status_code == 200
+    assert root_response.json()["root_dir"] == str(test_paths["png_root"].resolve())
+
+    update_response = client.patch("/api/admin/root", json={"root_dir": str(new_root), "rescan": False})
+    assert update_response.status_code == 200
+    payload = update_response.json()
+    assert payload["root_dir"] == str(new_root.resolve())
+    assert payload["source"] == "database"
+    assert payload["changed"] is True
+    assert payload["rescan_accepted"] is False
+
+    container = client.app.state.container
+    assert container.file_system_service.root_path == new_root.resolve()
+    container.index_service.scan_now(reason="test-root-change")
+
+    new_image_response = client.get("/api/images", params={"q": "new-root-image"})
+    old_image_response = client.get("/api/images", params={"q": "plain"})
+
+    assert new_image_response.status_code == 200
+    assert any(item["filename"] == "new-root-image.png" for item in new_image_response.json()["items"])
+    assert old_image_response.status_code == 200
+    assert not old_image_response.json()["items"]
+
+
+def test_admin_image_root_update_rejects_invalid_path(client, test_paths: dict[str, Path], tmp_path: Path) -> None:
+    login = client.post("/api/auth/login", json={"username": "admin", "password": "secret123"})
+    assert login.status_code == 200
+    missing_root = tmp_path / "missing-root"
+
+    response = client.patch("/api/admin/root", json={"root_dir": str(missing_root), "rescan": False})
+
+    assert response.status_code == 400
+    container = client.app.state.container
+    assert container.file_system_service.root_path == test_paths["png_root"].resolve()
 
 
 def test_tree_endpoint_rejects_path_traversal(scanned_client) -> None:

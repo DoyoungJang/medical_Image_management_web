@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import type { FacetCount, IndexStatusResponse, PublicConfig } from "../types/api";
+import type { AdminImageRootResponse, FacetCount, IndexStatusResponse, PublicConfig } from "../types/api";
 import { booleanLabel, statusLabel } from "../utils/labels";
 import { formatDate } from "../utils/format";
 
@@ -17,7 +17,10 @@ interface AdminPageProps {
   canRescan: boolean;
   metadataKeys: string[];
   trackedMetadataKeys: string[];
+  imageRootConfig: AdminImageRootResponse | null;
+  rootUpdating: boolean;
   onRescan: () => Promise<void>;
+  onUpdateImageRoot: (rootDir: string) => Promise<AdminImageRootResponse>;
   onAddTrackedMetadataKey: (key: string) => Promise<void>;
   onRemoveTrackedMetadataKey: (key: string) => Promise<void>;
 }
@@ -62,15 +65,22 @@ export function AdminPage({
   canRescan,
   metadataKeys,
   trackedMetadataKeys,
+  imageRootConfig,
+  rootUpdating,
   onRescan,
+  onUpdateImageRoot,
   onAddTrackedMetadataKey,
   onRemoveTrackedMetadataKey,
 }: AdminPageProps) {
   const [trackedKeyInput, setTrackedKeyInput] = useState("");
   const [metadataKeySaving, setMetadataKeySaving] = useState(false);
   const [metadataKeyError, setMetadataKeyError] = useState("");
+  const [rootInput, setRootInput] = useState("");
+  const [rootMessage, setRootMessage] = useState("");
+  const [rootError, setRootError] = useState("");
   const lastStartedAt = indexStatus?.last_started_at ? formatDate(indexStatus.last_started_at) : "-";
   const lastFinishedAt = indexStatus?.last_finished_at ? formatDate(indexStatus.last_finished_at) : "-";
+  const rootSourceLabel = imageRootConfig?.source === "database" ? "관리자 설정" : "환경 변수";
   const rescanButtonLabel = !canRescan
     ? "관리자 권한 필요"
     : rescanning
@@ -78,6 +88,12 @@ export function AdminPage({
       : indexStatus?.scanning
         ? "스캔 진행 중"
         : "수동 재스캔";
+
+  useEffect(() => {
+    if (imageRootConfig?.root_dir) {
+      setRootInput(imageRootConfig.root_dir);
+    }
+  }, [imageRootConfig?.root_dir]);
 
   return (
     <main className="admin-page">
@@ -142,6 +158,72 @@ export function AdminPage({
             <strong>{config.max_page_size}</strong>
           </div>
         </div>
+      </section>
+
+      <section className="admin-section">
+        <div className="section-header">
+          <div>
+            <h3>이미지 루트 경로</h3>
+            <p className="muted">관리자만 변경할 수 있습니다. 변경하면 기존 목록을 안전하게 비우고 새 경로를 백그라운드로 재스캔합니다.</p>
+          </div>
+        </div>
+        <div className="info-grid">
+          <div>
+            <span>현재 경로</span>
+            <strong>{imageRootConfig?.root_dir ?? "관리자 권한으로만 확인 가능"}</strong>
+          </div>
+          <div>
+            <span>설정 출처</span>
+            <strong>{imageRootConfig ? rootSourceLabel : "-"}</strong>
+          </div>
+          <div>
+            <span>환경 변수 기본값</span>
+            <strong>{imageRootConfig?.env_root_dir ?? "-"}</strong>
+          </div>
+        </div>
+        <form
+          className="root-path-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const nextRoot = rootInput.trim();
+            if (!nextRoot) {
+              return;
+            }
+            setRootMessage("");
+            setRootError("");
+            try {
+              const result = await onUpdateImageRoot(nextRoot);
+              setRootMessage(
+                result.rescan_accepted
+                  ? "이미지 루트 경로를 변경했고 재스캔을 요청했습니다."
+                  : "이미지 루트 경로를 저장했습니다. 재스캔이 이미 진행 중이면 완료 후 다시 확인하세요.",
+              );
+            } catch (error) {
+              setRootError(error instanceof Error ? error.message : "이미지 루트 경로를 변경하지 못했습니다.");
+            }
+          }}
+        >
+          <label>
+            새 이미지 루트 경로
+            <input
+              value={rootInput}
+              placeholder="예: C:\\data\\company-png 또는 /data/company-png"
+              disabled={!canRescan || rootUpdating || indexStatus?.scanning}
+              onChange={(event) => setRootInput(event.target.value)}
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={!canRescan || rootUpdating || Boolean(indexStatus?.scanning) || !rootInput.trim()}
+          >
+            {rootUpdating ? "변경 중" : "경로 변경"}
+          </button>
+        </form>
+        {rootMessage ? <p className="success-inline">{rootMessage}</p> : null}
+        {rootError ? <div className="error-box">{rootError}</div> : null}
+        <p className="empty-inline">
+          새 경로는 서버에서 실제로 존재하는 디렉터리여야 하며, 썸네일 캐시 디렉터리가 이미지 루트 안에 있으면 사용할 수 없습니다.
+        </p>
       </section>
 
       <section className="admin-section">

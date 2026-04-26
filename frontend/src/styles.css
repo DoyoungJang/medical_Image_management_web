@@ -960,12 +960,27 @@ select:focus {
   margin-top: 0.9rem;
 }
 
-.tracked-metadata-form label {
+.root-path-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin-top: 0.9rem;
+}
+
+.tracked-metadata-form label,
+.root-path-form label {
   display: grid;
   gap: 0.45rem;
   color: var(--text-soft);
   font-size: 0.9rem;
   font-weight: 800;
+}
+
+.success-inline {
+  margin: 0.75rem 0 0;
+  color: #008a70;
+  font-weight: 900;
 }
 
 .tracked-metadata-list {
