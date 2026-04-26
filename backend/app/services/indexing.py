@@ -54,20 +54,8 @@ class IndexService:
 
     def trigger_background_scan(self, *, reason: str, target_path: str = "") -> bool:
         normalized_target_path = self.file_system_service.normalize_relative_path(target_path)
-        with self._state_lock:
-            if self._scanning:
-                return False
-            now = datetime.now(tz=timezone.utc)
-            if (
-                reason == "manual"
-                and self._last_started_at is not None
-                and (now - self._last_started_at).total_seconds() < self.settings.admin_rescan_cooldown_seconds
-            ):
-                return False
-            self._scanning = True
-            self._last_started_at = now
-            self._current_reason = reason
-            self._current_target_path = normalized_target_path
+        if not self._try_start_scan(reason=reason, target_path=normalized_target_path):
+            return False
 
         thread = threading.Thread(
             target=self._run_scan,
@@ -83,12 +71,81 @@ class IndexService:
 
     def scan_now(self, *, reason: str, target_path: str = "") -> ScanResult:
         normalized_target_path = self.file_system_service.normalize_relative_path(target_path)
+        self._force_start_scan(reason=reason, target_path=normalized_target_path)
+        return self._execute_scan(reason=reason, target_path=normalized_target_path)
+
+    def rescan_image_now(self, image_id: int) -> Image | None:
+        if not self._try_start_scan(reason="image", target_path=f"image:{image_id}"):
+            return None
+        with self._scan_lock:
+            finished_at = datetime.now(tz=timezone.utc)
+            result = ScanResult(reason="image", target_path=f"image:{image_id}", scanned=0, updated=0, skipped=0, missing_marked=0, errors=0)
+            try:
+                with self.session_factory() as session:
+                    image = session.execute(
+                        select(Image)
+                        .where(Image.id == image_id)
+                        .options(selectinload(Image.metadata_entries))
+                    ).scalar_one_or_none()
+                    if image is None:
+                        return None
+                    result.scanned = 1
+                    try:
+                        source_path = self.file_system_service.resolve_relative_path(image.relative_path, strict=True)
+                        stat_result = source_path.stat()
+                    except (FileNotFoundError, OSError):
+                        image.missing_at = finished_at
+                        image.status = "missing"
+                        image.indexed_at = finished_at
+                        result.missing_marked = 1
+                        session.flush()
+                        self.search_service.rebuild_search_indexes(session, indexed_at=finished_at, folder_paths={image.directory})
+                        session.commit()
+                        session.refresh(image)
+                        return image
+
+                    content_hash = self._hash_file(source_path)
+                    extracted = self.metadata_extractor.extract(
+                        source_path,
+                        image.relative_path,
+                        stat_result,
+                        content_hash=content_hash,
+                    )
+                    refreshed_image = self._upsert_image(session, image, extracted)
+                    result.updated = 1
+                    if extracted.status != "ok":
+                        result.errors = 1
+                    session.flush()
+                    self.search_service.rebuild_search_indexes(session, indexed_at=finished_at, folder_paths={image.directory})
+                    session.commit()
+                    session.refresh(refreshed_image)
+                    return refreshed_image
+            finally:
+                self._finish_scan(finished_at=finished_at, result=result)
+
+    def _try_start_scan(self, *, reason: str, target_path: str) -> bool:
+        with self._state_lock:
+            if self._scanning:
+                return False
+            now = datetime.now(tz=timezone.utc)
+            if (
+                reason == "manual"
+                and self._last_started_at is not None
+                and (now - self._last_started_at).total_seconds() < self.settings.admin_rescan_cooldown_seconds
+            ):
+                return False
+            self._scanning = True
+            self._last_started_at = now
+            self._current_reason = reason
+            self._current_target_path = target_path
+            return True
+
+    def _force_start_scan(self, *, reason: str, target_path: str) -> None:
         with self._state_lock:
             self._scanning = True
             self._last_started_at = datetime.now(tz=timezone.utc)
             self._current_reason = reason
-            self._current_target_path = normalized_target_path
-        return self._execute_scan(reason=reason, target_path=normalized_target_path)
+            self._current_target_path = target_path
 
     def _run_scan(self, *, reason: str, target_path: str = "") -> None:
         self._execute_scan(reason=reason, target_path=target_path)
@@ -157,13 +214,16 @@ class IndexService:
                     )
                     session.commit()
             finally:
-                with self._state_lock:
-                    self._scanning = False
-                    self._last_finished_at = finished_at
-                    self._last_result = asdict(result)
-                    self._current_reason = None
-                    self._current_target_path = None
+                self._finish_scan(finished_at=finished_at, result=result)
             return result
+
+    def _finish_scan(self, *, finished_at: datetime, result: ScanResult) -> None:
+        with self._state_lock:
+            self._scanning = False
+            self._last_finished_at = finished_at
+            self._last_result = asdict(result)
+            self._current_reason = None
+            self._current_target_path = None
 
     def _existing_images_statement(self, target_path: str):
         statement = select(Image)

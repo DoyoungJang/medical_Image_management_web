@@ -14,10 +14,13 @@ from app.dependencies import get_container, get_db
 from app.schemas import (
     AdminImageRootResponse,
     AdminImageRootUpdateRequest,
+    ExportFilteredImagesRequest,
+    ExportFilteredImagesResponse,
     FolderRescanRequest,
     HealthResponse,
     ImageDetailResponse,
     ImageListResponse,
+    ImageRescanResponse,
     IndexStatusResponse,
     LoginRequest,
     MetadataFacetsResponse,
@@ -44,6 +47,28 @@ def require_user(request: Request, container: AppContainer = Depends(get_contain
 
 def require_admin(request: Request, container: AppContainer = Depends(get_container)):
     return container.auth_service.require_admin_user(request)
+
+
+def image_detail_response(image, db: Session, container: AppContainer) -> ImageDetailResponse:
+    metadata = container.metadata_extractor.deserialize_metadata(image.metadata_json)
+    absolute_path = None
+    if container.settings.public_show_absolute_path:
+        absolute_path = str(container.file_system_service.resolve_relative_path(image.relative_path, strict=True))
+
+    tracked_keys = container.search_service.get_tracked_metadata_keys(db)
+    summary = container.search_service.to_image_summary(image, tracked_keys=tracked_keys)
+    return ImageDetailResponse(
+        **summary.model_dump(),
+        format=image.format,
+        mode=image.mode,
+        bit_depth=image.bit_depth,
+        color_type=image.color_type,
+        dpi_x=image.dpi_x,
+        dpi_y=image.dpi_y,
+        error_message=image.error_message,
+        metadata=metadata,
+        absolute_path=absolute_path,
+    )
 
 
 @public_router.get("/health", response_model=HealthResponse)
@@ -185,25 +210,30 @@ def get_image_detail(
     if image is None or image.missing_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="이미지를 찾을 수 없습니다.")
 
-    metadata = container.metadata_extractor.deserialize_metadata(image.metadata_json)
-    absolute_path = None
-    if container.settings.public_show_absolute_path:
-        absolute_path = str(container.file_system_service.resolve_relative_path(image.relative_path, strict=True))
+    return image_detail_response(image, db, container)
 
-    tracked_keys = container.search_service.get_tracked_metadata_keys(db)
-    summary = container.search_service.to_image_summary(image, tracked_keys=tracked_keys)
-    return ImageDetailResponse(
-        **summary.model_dump(),
-        format=image.format,
-        mode=image.mode,
-        bit_depth=image.bit_depth,
-        color_type=image.color_type,
-        dpi_x=image.dpi_x,
-        dpi_y=image.dpi_y,
-        error_message=image.error_message,
-        metadata=metadata,
-        absolute_path=absolute_path,
-    )
+
+@protected_router.post("/images/{image_id}/rescan", response_model=ImageRescanResponse, dependencies=[Depends(require_user)])
+def rescan_image(
+    image_id: int,
+    db: Session = Depends(get_db),
+    container: AppContainer = Depends(get_container),
+) -> ImageRescanResponse:
+    image = container.index_service.rescan_image_now(image_id)
+    if image is None:
+        if container.index_service.is_scanning():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="다른 스캔이 이미 진행 중입니다. 완료 후 다시 시도하세요.",
+            )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="이미지를 찾을 수 없습니다.")
+    if image.missing_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="이미지 파일을 사용할 수 없습니다.")
+
+    refreshed_image = container.search_service.get_image(db, image_id)
+    if refreshed_image is None or refreshed_image.missing_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="이미지를 찾을 수 없습니다.")
+    return ImageRescanResponse(status="refreshed", image=image_detail_response(refreshed_image, db, container))
 
 
 @protected_router.get("/images/{image_id}/thumbnail", dependencies=[Depends(require_user)])
@@ -330,6 +360,56 @@ def trigger_folder_rescan(
             detail="다른 사용자의 스캔 또는 관리자 스캔이 이미 진행 중입니다. 완료 후 다시 시도하세요.",
         )
     return {"status": "accepted", "path": normalized_path}
+
+
+@protected_router.post(
+    "/images/export-filtered",
+    response_model=ExportFilteredImagesResponse,
+    dependencies=[Depends(require_user)],
+)
+def export_filtered_images(
+    payload: ExportFilteredImagesRequest,
+    container: AppContainer = Depends(get_container),
+) -> ExportFilteredImagesResponse:
+    directory_value = None
+    if payload.directory is not None:
+        try:
+            directory_value = container.file_system_service.normalize_relative_path(payload.directory)
+        except PathValidationError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    filters = SearchFilters(
+        q=payload.q,
+        directory=directory_value,
+        width_min=payload.width_min,
+        width_max=payload.width_max,
+        height_min=payload.height_min,
+        height_max=payload.height_max,
+        size_min=payload.size_min,
+        size_max=payload.size_max,
+        modified_from=payload.modified_from,
+        modified_to=payload.modified_to,
+        has_alpha=payload.has_alpha,
+        status=payload.status_filter,
+        metadata_key=payload.metadata_key,
+        metadata_value=payload.metadata_value,
+        sort=payload.sort,
+        order=payload.order,
+        page=1,
+        page_size=container.settings.max_export_items,
+    )
+    try:
+        result = container.export_service.export_filtered_images(filters, payload.destination_dir)
+    except PathValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return ExportFilteredImagesResponse(
+        status="completed",
+        destination_dir=result.destination_dir,
+        copied=result.copied,
+        skipped=result.skipped,
+        total_matched=result.total_matched,
+        limit_applied=result.limit_applied,
+    )
 
 
 @admin_router.post("/rescan", dependencies=[Depends(require_admin)])

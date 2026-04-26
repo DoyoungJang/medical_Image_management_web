@@ -80,6 +80,40 @@ class FolderRescanRequest(BaseModel):
     path: str = ""
 
 
+class ImageRescanResponse(BaseModel):
+    status: str
+    image: ImageDetailResponse
+
+
+class ExportFilteredImagesRequest(BaseModel):
+    destination_dir: str = Field(min_length=1, max_length=255)
+    q: str | None = None
+    directory: str | None = None
+    width_min: int | None = Field(default=None, ge=0)
+    width_max: int | None = Field(default=None, ge=0)
+    height_min: int | None = Field(default=None, ge=0)
+    height_max: int | None = Field(default=None, ge=0)
+    size_min: int | None = Field(default=None, ge=0)
+    size_max: int | None = Field(default=None, ge=0)
+    modified_from: datetime | None = None
+    modified_to: datetime | None = None
+    has_alpha: bool | None = None
+    status_filter: str | None = None
+    metadata_key: str | None = None
+    metadata_value: str | None = None
+    sort: str = "modified_time"
+    order: str = "desc"
+
+
+class ExportFilteredImagesResponse(BaseModel):
+    status: str
+    destination_dir: str
+    copied: int
+    skipped: int
+    total_matched: int
+    limit_applied: bool = False
+
+
 class MetadataKeysResponse(BaseModel):
     keys: list[str]
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import os
 from pathlib import Path
 
 from PIL import Image
@@ -274,6 +275,49 @@ def test_original_file_endpoint_uses_image_media_type(scanned_client) -> None:
     assert thumbnail_response.headers["content-type"] == "image/png"
 
 
+def test_image_rescan_force_refreshes_single_image_metadata(scanned_client, test_paths: dict[str, Path]) -> None:
+    jpg_response = scanned_client.get("/api/images", params={"q": "photo"})
+    image_id = next(item["id"] for item in jpg_response.json()["items"] if item["filename"] == "photo.jpg")
+    target_path = test_paths["png_root"] / "photo.jpg"
+    original_stat = target_path.stat()
+    original_bytes = target_path.read_bytes()
+    updated_bytes = original_bytes.replace(b"<custom:View>4CV</custom:View>", b"<custom:View>5CV</custom:View>")
+    target_path.write_bytes(updated_bytes)
+    os.utime(target_path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+
+    response = scanned_client.post(f"/api/images/{image_id}/rescan")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "refreshed"
+    assert payload["image"]["tracked_metadata"].get("View") in {None, "5CV"}
+    detail_response = scanned_client.get(f"/api/images/{image_id}")
+    assert detail_response.json()["metadata"]["xmp"]["fields"]["View"] == ["5CV"]
+
+
+def test_regular_user_can_force_rescan_single_image(scanned_client) -> None:
+    container = scanned_client.app.state.container
+    viewer_token = container.auth_service.create_session_token("viewer")
+    scanned_client.cookies.set(container.settings.auth_cookie_name, viewer_token)
+    list_response = scanned_client.get("/api/images", params={"q": "meta"})
+    image_id = next(item["id"] for item in list_response.json()["items"] if item["filename"] == "meta.png")
+
+    response = scanned_client.post(f"/api/images/{image_id}/rescan")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "refreshed"
+
+
+def test_image_rescan_reports_conflict_when_scan_is_running(scanned_client, monkeypatch) -> None:
+    container = scanned_client.app.state.container
+    monkeypatch.setattr(container.index_service, "rescan_image_now", lambda image_id: None)
+    monkeypatch.setattr(container.index_service, "is_scanning", lambda: True)
+
+    response = scanned_client.post("/api/images/1/rescan")
+
+    assert response.status_code == 409
+
+
 def test_corrupted_png_is_visible_with_status(scanned_client) -> None:
     response = scanned_client.get("/api/images", params={"status": "corrupted"})
     assert response.status_code == 200
@@ -287,6 +331,27 @@ def test_metadata_key_search(scanned_client) -> None:
     )
     assert response.status_code == 200
     assert any(item["filename"] == "meta.png" for item in response.json()["items"])
+
+
+def test_export_filtered_images_copies_matches_under_export_root(scanned_client, test_paths: dict[str, Path]) -> None:
+    response = scanned_client.post(
+        "/api/images/export-filtered",
+        json={"destination_dir": "review-set", "q": "photo"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["copied"] >= 1
+    assert (test_paths["export_root"] / "review-set" / "photo.jpg").exists()
+
+
+def test_export_filtered_images_rejects_path_traversal(scanned_client) -> None:
+    response = scanned_client.post(
+        "/api/images/export-filtered",
+        json={"destination_dir": "../outside", "q": "photo"},
+    )
+
+    assert response.status_code == 400
 
 
 def test_admin_tracked_metadata_keys_are_returned_with_null_for_missing_values(scanned_client) -> None:

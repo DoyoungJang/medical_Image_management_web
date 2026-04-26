@@ -187,6 +187,28 @@ class SearchService:
         items = session.execute(query.offset(offset).limit(filters.page_size)).scalars().all()
         return items, total
 
+    def search_all_images(self, session: Session, filters: SearchFilters, *, limit: int) -> list[Image]:
+        query = (
+            select(Image)
+            .where(Image.missing_at.is_(None))
+            .options(selectinload(Image.metadata_entries))
+        )
+        count_query = select(func.count(Image.id)).where(Image.missing_at.is_(None))
+        query, _ = self._apply_filters(query, count_query, filters)
+
+        order_column = self._sort_column(filters.sort)
+        if filters.order.lower() == "asc":
+            query = query.order_by(order_column.asc(), Image.id.asc())
+        else:
+            query = query.order_by(order_column.desc(), Image.id.desc())
+        return session.execute(query.limit(max(limit, 1))).scalars().all()
+
+    def count_images(self, session: Session, filters: SearchFilters) -> int:
+        query = select(Image.id).where(Image.missing_at.is_(None))
+        count_query = select(func.count(Image.id)).where(Image.missing_at.is_(None))
+        _, count_query = self._apply_filters(query, count_query, filters)
+        return session.execute(count_query).scalar_one()
+
     def _apply_filters(self, query: Any, count_query: Any, filters: SearchFilters) -> tuple[Any, Any]:
         conditions = []
         params: dict[str, Any] = {}

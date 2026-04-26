@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.db import Base, create_db_engine, create_session_factory, ensure_schema_compatibility
 from app.schemas import AdminImageRootResponse
 from app.services.auth import AuthService
+from app.services.export import ExportService
 from app.services.filesystem import FileSystemService
 from app.services.indexing import IndexService
 from app.services.metadata import MetadataExtractor
@@ -38,6 +39,12 @@ class AppContainer:
         self.metadata_extractor = MetadataExtractor(settings)
         self.search_service = SearchService(settings, self.session_factory)
         self.thumbnail_service = ThumbnailService(settings, self.file_system_service, self.session_factory)
+        self.export_service = ExportService(
+            settings,
+            self.session_factory,
+            self.file_system_service,
+            self.search_service,
+        )
         self.index_service = IndexService(
             settings=settings,
             session_factory=self.session_factory,
@@ -54,6 +61,7 @@ class AppContainer:
         ensure_schema_compatibility(self.engine)
         runtime_root_config = self.runtime_config_service.get_image_root_config()
         self.file_system_service.set_root_path(runtime_root_config.root_dir)
+        self.export_service.ensure_export_root()
         self.search_service.initialize()
 
     def start_background_services(self) -> None:
@@ -90,6 +98,7 @@ class AppContainer:
             runtime_config = self.runtime_config_service.set_image_root_dir(str(resolved_root))
             self.watch_service.stop()
             self.file_system_service.set_root_path(str(resolved_root))
+            self.export_service.ensure_export_root()
 
             missing_marked = self.index_service.mark_all_active_missing() if changed else 0
             if self.settings.enable_watchdog:

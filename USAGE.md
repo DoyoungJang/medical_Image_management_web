@@ -114,11 +114,25 @@ curl -X POST http://localhost:8000/api/admin/rescan
 - `축소`
 - `확대`
 - `화면 맞춤`
+- `이미지 정보 새로고침`
 - `원본 열기`
 
 `원본 열기`는 백엔드의 안전한 파일 스트리밍 엔드포인트를 통해 열립니다.
 
-## 6. 관리자 화면
+`이미지 정보 새로고침`은 선택한 이미지 1개만 다시 읽어 DB 메타데이터를 갱신합니다. 파일 크기나 수정 시간이 바뀌지 않았더라도 강제로 한 번 더 추출합니다.
+
+## 6. 필터 결과 일괄 저장
+
+탐색 화면의 `필터 결과 일괄 저장`에서 저장 폴더명을 입력하고 `필터 결과 전체 저장`을 누르면 현재 검색/필터 조건에 맞는 이미지가 서버의 `EXPORT_ROOT_DIR` 아래로 복사됩니다.
+
+안전 규칙:
+
+- 원본 이미지는 수정하지 않습니다.
+- 저장 대상은 `EXPORT_ROOT_DIR` 아래의 하위 폴더만 허용됩니다.
+- `../`, 절대 경로, Windows 드라이브 경로는 차단됩니다.
+- 같은 상대 경로 구조를 유지해 복사하므로 파일명 충돌을 줄입니다.
+
+## 7. 관리자 화면
 
 상단 `관리자` 탭에서 운영 상태를 확인합니다.
 
@@ -151,7 +165,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 
 관리자 지정 메타데이터에는 이미지 목록과 상세 화면에 항상 표시할 키를 등록합니다. 예를 들어 `View`를 등록하면 해당 이미지에 `View=3VV` 메타데이터가 있을 때 `View: 3VV`로 표시되고, 없으면 `View: null`로 표시됩니다. 등록과 삭제는 관리자 계정만 가능합니다.
 
-## 7. 안전 규칙
+## 8. 안전 규칙
 
 이 애플리케이션은 내부 시스템 기준으로 보수적으로 동작합니다.
 
@@ -162,7 +176,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 - `../`, 절대 경로, encoded traversal, symlink escape는 차단됩니다.
 - `PUBLIC_SHOW_ABSOLUTE_PATH=false`가 기본값입니다.
 
-## 8. 데이터베이스 백업
+## 9. 데이터베이스 백업
 
 Docker Compose 환경에서 SQLite DB를 백업합니다.
 
@@ -176,7 +190,7 @@ docker compose exec backend sh -lc 'cp /var/lib/png-browser/app.db /var/lib/png-
 docker compose cp backend:/var/lib/png-browser/app.db ./app.db.backup
 ```
 
-## 9. PostgreSQL 전환 메모
+## 10. PostgreSQL 전환 메모
 
 이미지가 수십만 건 이상으로 늘어나면 SQLite 대신 PostgreSQL 전환을 권장합니다.
 
@@ -185,7 +199,7 @@ docker compose cp backend:/var/lib/png-browser/app.db ./app.db.backup
 - FTS는 PostgreSQL `GIN + tsvector` 또는 전용 검색 인덱스로 교체합니다.
 - 썸네일 캐시 구조는 그대로 유지할 수 있습니다.
 
-## 10. 자주 겪는 문제
+## 11. 자주 겪는 문제
 
 ### 검색 결과가 없습니다
 

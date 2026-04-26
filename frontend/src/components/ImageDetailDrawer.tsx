@@ -15,6 +15,8 @@ interface ImageDetailDrawerProps {
   onClose: () => void;
   onZoomChange: (zoom: number) => void;
   onToggleFit: () => void;
+  rescanning: boolean;
+  onRescan: (imageId: number) => void;
 }
 
 export function ImageDetailDrawer({
@@ -26,6 +28,8 @@ export function ImageDetailDrawer({
   onClose,
   onZoomChange,
   onToggleFit,
+  rescanning,
+  onRescan,
 }: ImageDetailDrawerProps) {
   const breadcrumbText = useMemo(
     () => breadcrumbs.map((item) => item.name).join(" / "),
@@ -56,6 +60,9 @@ export function ImageDetailDrawer({
             </button>
             <button className="secondary" onClick={onToggleFit}>
               {fitToScreen ? "원본 비율" : "화면 맞춤"}
+            </button>
+            <button className="secondary" disabled={rescanning} onClick={() => onRescan(image.id)}>
+              {rescanning ? "이미지 재스캔 중" : "이미지 정보 새로고침"}
             </button>
             <a className="button-link" href={imageFileUrl(image.id)} target="_blank" rel="noreferrer">
               원본 열기

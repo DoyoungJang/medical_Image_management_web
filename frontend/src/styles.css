@@ -487,6 +487,25 @@ select:focus {
     #ffffff;
 }
 
+.export-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 0.8fr) auto;
+  gap: 0.85rem;
+  align-items: end;
+}
+
+.export-panel label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.export-panel .success-inline {
+  grid-column: 1 / -1;
+}
+
 .search-grid {
   grid-template-columns: 1.3fr 1.05fr 1.05fr 0.82fr;
 }

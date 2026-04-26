@@ -74,12 +74,15 @@ def test_paths(tmp_path: Path) -> dict[str, Path]:
     png_root.mkdir()
     thumbnail_cache = tmp_path / "thumb-cache"
     thumbnail_cache.mkdir()
+    export_root = tmp_path / "exports"
+    export_root.mkdir()
     database_path = tmp_path / "app.db"
 
     create_test_png_tree(png_root)
     return {
         "png_root": png_root,
         "thumbnail_cache": thumbnail_cache,
+        "export_root": export_root,
         "database_path": database_path,
     }
 
@@ -91,6 +94,7 @@ def settings(test_paths: dict[str, Path]) -> Settings:
         environment="test",
         png_root_dir=str(test_paths["png_root"]),
         thumbnail_cache_dir=str(test_paths["thumbnail_cache"]),
+        export_root_dir=str(test_paths["export_root"]),
         database_url=f"sqlite:///{test_paths['database_path'].as_posix()}",
         auto_scan_on_startup=False,
         periodic_scan_interval_seconds=0,

@@ -20,6 +20,7 @@ import type {
 } from "./types/api";
 import {
   addTrackedMetadataKey,
+  exportFilteredImages,
   fetchAdminImageRoot,
   fetchFacets,
   fetchImageDetail,
@@ -33,6 +34,7 @@ import {
   login,
   logout,
   removeTrackedMetadataKey,
+  rescanImage,
   triggerFolderRescan,
   triggerRescan,
   updateAdminImageRoot,
@@ -131,6 +133,10 @@ export default function App() {
   const [rescanning, setRescanning] = useState(false);
   const [folderRescanning, setFolderRescanning] = useState(false);
   const [rootUpdating, setRootUpdating] = useState(false);
+  const [imageRescanning, setImageRescanning] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportDir, setExportDir] = useState("");
+  const [exportMessage, setExportMessage] = useState("");
 
   const activeTree = treeCache[selectedPath];
   const breadcrumbs = activeTree?.breadcrumbs ?? [{ name: "루트", path: "" }];
@@ -413,6 +419,43 @@ export default function App() {
     }
   };
 
+  const handleImageRescan = async (imageId: number) => {
+    setImageRescanning(true);
+    setError("");
+    try {
+      const response = await rescanImage(imageId);
+      setSelectedImage(response.image);
+      await refreshCurrentImages();
+      const refreshedStatus = await fetchIndexStatus();
+      setIndexStatus(refreshedStatus);
+    } catch (scanError) {
+      setError(scanError instanceof Error ? scanError.message : "이미지 재스캔에 실패했습니다.");
+    } finally {
+      setImageRescanning(false);
+    }
+  };
+
+  const handleExportFiltered = async () => {
+    const destination = exportDir.trim();
+    if (!destination) {
+      setError("저장할 폴더명을 입력하세요.");
+      return;
+    }
+    setExporting(true);
+    setExportMessage("");
+    setError("");
+    try {
+      const result = await exportFilteredImages(destination, buildSearchParams(filters));
+      setExportMessage(
+        `${result.total_matched}개 중 ${result.copied}개를 ${result.destination_dir} 폴더에 저장했습니다.${result.skipped ? ` (${result.skipped}개 건너뜀)` : ""}${result.limit_applied ? " 최대 저장 개수 제한이 적용되었습니다." : ""}`,
+      );
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : "필터 결과 저장에 실패했습니다.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const resetBrowserStateAfterRootChange = () => {
     setTreeCache({});
     setExpandedPaths(new Set([""]));
@@ -592,6 +635,25 @@ export default function App() {
               </div>
             </div>
 
+            <div className="panel export-panel">
+              <div>
+                <strong>필터 결과 일괄 저장</strong>
+                <p className="muted">현재 검색/필터 조건에 맞는 전체 이미지를 서버의 EXPORT_ROOT_DIR 아래 폴더로 복사합니다.</p>
+              </div>
+              <label>
+                저장 폴더명
+                <input
+                  value={exportDir}
+                  placeholder="예: 2026-04-review"
+                  onChange={(event) => setExportDir(event.target.value)}
+                />
+              </label>
+              <button className="secondary" disabled={exporting || !exportDir.trim()} onClick={() => void handleExportFiltered()}>
+                {exporting ? "저장 중" : "필터 결과 전체 저장"}
+              </button>
+              {exportMessage ? <p className="success-inline">{exportMessage}</p> : null}
+            </div>
+
             <ImageGrid
               items={images?.items ?? []}
               loading={imageLoading}
@@ -614,6 +676,8 @@ export default function App() {
             onClose={() => setSelectedImageId(null)}
             onZoomChange={setZoom}
             onToggleFit={() => setFitToScreen((current) => !current)}
+            rescanning={imageRescanning}
+            onRescan={(imageId) => void handleImageRescan(imageId)}
           />
         </div>
       ) : (

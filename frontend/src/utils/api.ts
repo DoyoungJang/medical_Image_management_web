@@ -1,7 +1,9 @@
 import type {
   AdminImageRootResponse,
+  ExportFilteredImagesResponse,
   ImageDetail,
   ImageListResponse,
+  ImageRescanResponse,
   IndexStatusResponse,
   MetadataKeysResponse,
   MetadataFacetsResponse,
@@ -81,6 +83,10 @@ export async function fetchImageDetail(imageId: number): Promise<ImageDetail> {
   return request<ImageDetail>(`/images/${imageId}`);
 }
 
+export async function rescanImage(imageId: number): Promise<ImageRescanResponse> {
+  return request<ImageRescanResponse>(`/images/${imageId}/rescan`, { method: "POST" });
+}
+
 export async function fetchFacets(params: URLSearchParams): Promise<MetadataFacetsResponse> {
   return request<MetadataFacetsResponse>(`/metadata/facets?${params.toString()}`);
 }
@@ -130,6 +136,31 @@ export async function triggerFolderRescan(path: string): Promise<{ status: strin
   return request<{ status: string; path: string }>("/folders/rescan", {
     method: "POST",
     body: JSON.stringify({ path }),
+  });
+}
+
+export async function exportFilteredImages(
+  destinationDir: string,
+  params: URLSearchParams,
+): Promise<ExportFilteredImagesResponse> {
+  const payload: Record<string, string | boolean | null> = { destination_dir: destinationDir };
+  params.forEach((value, key) => {
+    if (key === "page" || key === "page_size") {
+      return;
+    }
+    if (key === "status") {
+      payload.status_filter = value;
+      return;
+    }
+    if (key === "has_alpha") {
+      payload.has_alpha = value === "true";
+      return;
+    }
+    payload[key] = value;
+  });
+  return request<ExportFilteredImagesResponse>("/images/export-filtered", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 

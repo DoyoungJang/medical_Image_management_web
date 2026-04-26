@@ -33,6 +33,7 @@ class Settings(BaseSettings):
 
     png_root_dir: str = "./data/png"
     thumbnail_cache_dir: str = "./data/thumb-cache"
+    export_root_dir: str = "./data/exports"
     database_url: str = "sqlite:///./png_browser.db"
 
     auto_scan_on_startup: bool = False
@@ -61,6 +62,7 @@ class Settings(BaseSettings):
     max_page_size: int = 100
     thumbnail_default_size: int = 256
     thumbnail_max_size: int = 512
+    max_export_items: int = 5000
 
     admin_rescan_cooldown_seconds: int = 10
     max_metadata_text_length: int = 200_000

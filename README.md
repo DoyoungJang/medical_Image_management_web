@@ -4,6 +4,17 @@
 
 ## 1. Windows 설치
 
+### 1.0 자동 설치 스크립트
+
+PowerShell을 관리자 권한이 아닌 일반 권한으로 열고 저장소 루트에서 실행합니다.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\setup-windows.ps1
+```
+
+기본값으로 `C:\data\company-png`, `C:\png-browser-cache`, `C:\png-browser-exports`를 만들고 백엔드/프런트엔드 의존성을 설치합니다. 설치 후 스크립트가 출력하는 백엔드와 프런트엔드 실행 명령을 각각 새 PowerShell에서 실행하면 됩니다.
+
 ### 1.1 사전 준비
 
 Windows PowerShell에서 아래 명령으로 필수 도구가 설치되어 있는지 확인합니다.
@@ -48,6 +59,7 @@ cd medical_Image_management_web
 ```powershell
 New-Item -ItemType Directory -Force C:\data\company-png
 New-Item -ItemType Directory -Force C:\png-browser-cache
+New-Item -ItemType Directory -Force C:\png-browser-exports
 ```
 
 원본 이미지 파일은 `C:\data\company-png` 아래에 넣습니다. 기본 지원 확장자는 `.png`, `.jpg`, `.jpeg`, `.bmp`입니다. 애플리케이션은 이 디렉터리 밖의 파일을 탐색하지 않습니다.
@@ -82,10 +94,12 @@ cd ..
 ```powershell
 $env:PNG_ROOT_DIR="C:\data\company-png"
 $env:THUMBNAIL_CACHE_DIR="C:\png-browser-cache"
+$env:EXPORT_ROOT_DIR="C:\png-browser-exports"
 $env:DATABASE_URL="sqlite:///./png_browser.db"
 $env:SQLITE_BUSY_TIMEOUT_SECONDS="30"
 $env:SQLITE_JOURNAL_MODE="WAL"
 $env:SQLITE_SYNCHRONOUS="NORMAL"
+$env:MAX_EXPORT_ITEMS="5000"
 $env:AUTO_SCAN_ON_STARTUP="true"
 $env:PERIODIC_SCAN_INTERVAL_SECONDS="300"
 $env:ALLOW_SYMLINKS="false"
@@ -129,6 +143,16 @@ http://localhost:5173
 ```
 
 ## 2. Ubuntu 설치
+
+### 2.0 자동 설치 스크립트
+
+저장소 루트에서 실행합니다.
+
+```bash
+bash scripts/setup-ubuntu.sh
+```
+
+기본값으로 `/data/company-png`, `/var/cache/png-browser-thumbnails`, `/var/lib/png-browser/exports`, `/var/lib/png-browser/app.db`를 준비하고 의존성을 설치합니다. 설치 후 스크립트가 출력하는 백엔드와 프런트엔드 실행 명령을 각각 실행하세요.
 
 ### 2.1 사전 준비
 
@@ -190,10 +214,12 @@ cd ..
 ```bash
 export PNG_ROOT_DIR=/data/company-png
 export THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails
+export EXPORT_ROOT_DIR=/var/lib/png-browser/exports
 export DATABASE_URL=sqlite:////var/lib/png-browser/app.db
 export SQLITE_BUSY_TIMEOUT_SECONDS=30
 export SQLITE_JOURNAL_MODE=WAL
 export SQLITE_SYNCHRONOUS=NORMAL
+export MAX_EXPORT_ITEMS=5000
 export AUTO_SCAN_ON_STARTUP=true
 export PERIODIC_SCAN_INTERVAL_SECONDS=300
 export ALLOW_SYMLINKS=false
@@ -262,10 +288,12 @@ cp .env.example .env
 APP_PORT=8080
 PNG_ROOT_DIR=/data/company-png
 THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails
+EXPORT_ROOT_DIR=/var/lib/png-browser/exports
 DATABASE_URL=sqlite:////var/lib/png-browser/app.db
 SQLITE_BUSY_TIMEOUT_SECONDS=30
 SQLITE_JOURNAL_MODE=WAL
 SQLITE_SYNCHRONOUS=NORMAL
+MAX_EXPORT_ITEMS=5000
 AUTO_SCAN_ON_STARTUP=true
 PERIODIC_SCAN_INTERVAL_SECONDS=300
 ALLOW_SYMLINKS=false

@@ -62,6 +62,11 @@ export interface ImageDetail extends ImageSummary {
   absolute_path?: string | null;
 }
 
+export interface ImageRescanResponse {
+  status: string;
+  image: ImageDetail;
+}
+
 export interface TreeResponse {
   current_path: string;
   breadcrumbs: BreadcrumbItem[];
@@ -102,6 +107,15 @@ export interface AdminImageRootResponse {
   changed: boolean;
   rescan_accepted?: boolean | null;
   missing_marked: number;
+}
+
+export interface ExportFilteredImagesResponse {
+  status: string;
+  destination_dir: string;
+  copied: number;
+  skipped: number;
+  total_matched: number;
+  limit_applied: boolean;
 }
 
 export interface IndexStatusResponse {
