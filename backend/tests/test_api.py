@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from PIL import Image
+from sqlalchemy import select
+
+from app.models import Image as ImageModel
 
 
 def test_root_endpoint_explains_backend_server(client) -> None:
@@ -240,6 +244,23 @@ def test_thumbnail_and_file_endpoints(scanned_client) -> None:
     assert file_response.headers["content-type"] == "image/png"
 
 
+def test_concurrent_thumbnail_generation_uses_one_valid_cache_file(scanned_client) -> None:
+    container = scanned_client.app.state.container
+    with container.session_factory() as session:
+        image = session.execute(select(ImageModel).where(ImageModel.filename == "meta.png")).scalar_one()
+
+    def get_thumbnail_path() -> Path:
+        return container.thumbnail_service.get_thumbnail_path(image, 128)
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        paths = list(executor.map(lambda _index: get_thumbnail_path(), range(16)))
+
+    assert len({path for path in paths}) == 1
+    assert paths[0].exists()
+    with Image.open(paths[0]) as thumbnail:
+        thumbnail.verify()
+
+
 def test_original_file_endpoint_uses_image_media_type(scanned_client) -> None:
     jpg_response = scanned_client.get("/api/images", params={"q": "photo"})
     image_id = next(item["id"] for item in jpg_response.json()["items"] if item["filename"] == "photo.jpg")
@@ -293,6 +314,19 @@ def test_admin_tracked_metadata_keys_are_returned_with_null_for_missing_values(s
     detail_response = scanned_client.get(f"/api/images/{meta_item['id']}")
     assert detail_response.status_code == 200
     assert detail_response.json()["tracked_metadata"]["View"] == "3VV"
+
+
+def test_concurrent_tracked_metadata_key_add_is_idempotent(scanned_client) -> None:
+    container = scanned_client.app.state.container
+
+    def add_key() -> list[str]:
+        with container.session_factory() as session:
+            return container.search_service.add_tracked_metadata_key(session, "View")
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        results = list(executor.map(lambda _index: add_key(), range(12)))
+
+    assert all(result == ["View"] for result in results)
 
 
 def test_tracked_metadata_key_mutation_requires_admin_account(client) -> None:

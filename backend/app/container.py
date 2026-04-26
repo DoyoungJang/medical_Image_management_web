@@ -87,9 +87,9 @@ class AppContainer:
             resolved_root = self.file_system_service.validate_root_path(root_dir)
             changed = resolved_root != previous_root
 
+            runtime_config = self.runtime_config_service.set_image_root_dir(str(resolved_root))
             self.watch_service.stop()
             self.file_system_service.set_root_path(str(resolved_root))
-            runtime_config = self.runtime_config_service.set_image_root_dir(str(resolved_root))
 
             missing_marked = self.index_service.mark_all_active_missing() if changed else 0
             if self.settings.enable_watchdog:

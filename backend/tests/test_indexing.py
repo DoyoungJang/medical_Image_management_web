@@ -6,6 +6,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.models import Image, MetadataKV
+from app.services import filesystem as filesystem_module
 
 
 def test_recursive_scan_indexes_nested_directories(scanned_client) -> None:
@@ -83,3 +84,19 @@ def test_missing_file_is_marked_missing(scanned_client, test_paths: dict[str, Pa
         image = session.execute(select(Image).where(Image.relative_path == "nested/deeper/deep.png")).scalar_one()
         assert image.missing_at is not None
         assert image.status == "missing"
+
+
+def test_scan_skips_unreadable_directory_without_crashing(scanned_client, test_paths: dict[str, Path], monkeypatch) -> None:
+    container = scanned_client.app.state.container
+    original_scandir = filesystem_module.os.scandir
+
+    def guarded_scandir(path):
+        if Path(path).name == "deeper":
+            raise PermissionError("access denied")
+        return original_scandir(path)
+
+    monkeypatch.setattr(filesystem_module.os, "scandir", guarded_scandir)
+
+    result = container.index_service.scan_now(reason="permission-skip")
+
+    assert result.scanned > 0

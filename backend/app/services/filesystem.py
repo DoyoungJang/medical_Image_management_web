@@ -143,11 +143,15 @@ class FileSystemService:
         relative_dir: str,
         visited: set[Path],
     ) -> Iterator[DiscoveredDirectory]:
-        entries = sorted(os.scandir(current_path), key=lambda entry: entry.name.lower())
+        entries = self._safe_scandir(current_path, key=lambda entry: entry.name.lower())
         for entry in entries:
             if entry.is_symlink() and not self.settings.allow_symlinks:
                 continue
-            if not entry.is_dir(follow_symlinks=self.settings.allow_symlinks):
+            try:
+                is_directory = entry.is_dir(follow_symlinks=self.settings.allow_symlinks)
+            except OSError:
+                continue
+            if not is_directory:
                 continue
 
             entry_path = Path(entry.path)
@@ -168,7 +172,10 @@ class FileSystemService:
             yield from self._iter_directories(entry_path, normalized_relative, visited)
 
     def _iter_directory(self, current_path: Path, relative_dir: str) -> Iterator[DiscoveredFile]:
-        entries = sorted(os.scandir(current_path), key=lambda entry: (not entry.is_dir(follow_symlinks=False), entry.name.lower()))
+        entries = self._safe_scandir(
+            current_path,
+            key=lambda entry: (not self._safe_is_dir(entry, follow_symlinks=False), entry.name.lower()),
+        )
         for entry in entries:
             entry_path = Path(entry.path)
             relative_path = f"{relative_dir}/{entry.name}" if relative_dir else entry.name
@@ -184,7 +191,7 @@ class FileSystemService:
                 if not self._is_within_root(resolved_symlink):
                     continue
 
-            if entry.is_dir(follow_symlinks=self.settings.allow_symlinks):
+            if self._safe_is_dir(entry, follow_symlinks=self.settings.allow_symlinks):
                 try:
                     resolved_dir = entry_path.resolve(strict=True)
                 except FileNotFoundError:
@@ -194,7 +201,11 @@ class FileSystemService:
                 yield from self._iter_directory(entry_path, normalized_relative)
                 continue
 
-            if not entry.is_file(follow_symlinks=self.settings.allow_symlinks):
+            try:
+                is_file = entry.is_file(follow_symlinks=self.settings.allow_symlinks)
+            except OSError:
+                continue
+            if not is_file:
                 continue
             if Path(entry.name).suffix.lower() not in self.supported_extensions:
                 continue
@@ -208,9 +219,25 @@ class FileSystemService:
             if not self.settings.allow_symlinks and self._contains_symlink(entry_path):
                 continue
 
-            stat_result = os.stat(entry.path, follow_symlinks=self.settings.allow_symlinks)
+            try:
+                stat_result = os.stat(entry.path, follow_symlinks=self.settings.allow_symlinks)
+            except OSError:
+                continue
             yield DiscoveredFile(
                 relative_path=normalized_relative,
                 absolute_path=entry_path,
                 stat_result=stat_result,
             )
+
+    def _safe_scandir(self, path: Path, *, key) -> list[os.DirEntry]:
+        try:
+            with os.scandir(path) as entries:
+                return sorted(list(entries), key=key)
+        except OSError:
+            return []
+
+    def _safe_is_dir(self, entry: os.DirEntry, *, follow_symlinks: bool) -> bool:
+        try:
+            return entry.is_dir(follow_symlinks=follow_symlinks)
+        except OSError:
+            return False

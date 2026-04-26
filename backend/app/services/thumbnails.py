@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import threading
 from pathlib import Path
 
 from PIL import Image, UnidentifiedImageError
@@ -25,6 +26,8 @@ class ThumbnailService:
         self.settings = settings
         self.file_system_service = file_system_service
         self.session_factory = session_factory
+        self._locks_guard = threading.Lock()
+        self._locks: dict[str, threading.Lock] = {}
 
     def get_thumbnail_path(self, image: ImageModel, size: int) -> Path:
         bounded_size = min(max(size, 32), self.settings.thumbnail_max_size)
@@ -39,6 +42,22 @@ class ThumbnailService:
         if thumbnail_path.exists():
             return thumbnail_path
 
+        with self._thumbnail_lock(cache_key):
+            if thumbnail_path.exists():
+                return thumbnail_path
+            self._generate_thumbnail(source_path, thumbnail_path, bounded_size)
+        return thumbnail_path
+
+    def _thumbnail_lock(self, cache_key: str) -> threading.Lock:
+        with self._locks_guard:
+            lock = self._locks.get(cache_key)
+            if lock is None:
+                lock = threading.Lock()
+                self._locks[cache_key] = lock
+            return lock
+
+    def _generate_thumbnail(self, source_path: Path, thumbnail_path: Path, bounded_size: int) -> None:
+        temp_path = thumbnail_path.with_suffix(f".{threading.get_ident()}.tmp")
         try:
             with Image.open(source_path) as source_image:
                 source_image.load()
@@ -46,8 +65,8 @@ class ThumbnailService:
                 preview.thumbnail((bounded_size, bounded_size), Image.Resampling.LANCZOS)
                 if preview.mode not in {"1", "L", "LA", "P", "RGB", "RGBA"}:
                     preview = preview.convert("RGB")
-                preview.save(thumbnail_path, format="PNG", optimize=True)
+                preview.save(temp_path, format="PNG", optimize=True)
+            temp_path.replace(thumbnail_path)
         except (UnidentifiedImageError, OSError) as exc:
+            temp_path.unlink(missing_ok=True)
             raise ThumbnailError("이 이미지 파일의 썸네일을 생성할 수 없습니다.") from exc
-
-        return thumbnail_path

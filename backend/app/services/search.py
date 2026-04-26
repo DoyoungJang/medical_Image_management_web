@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import and_, delete, exists, func, or_, select, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from app.core.config import Settings
@@ -393,7 +393,10 @@ class SearchService:
         ).scalar_one_or_none()
         if existing is None:
             session.add(TrackedMetadataKey(key=normalized_key))
-            session.commit()
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
         return self.get_tracked_metadata_keys(session)
 
     def remove_tracked_metadata_key(self, session: Session, key: str) -> list[str]:
