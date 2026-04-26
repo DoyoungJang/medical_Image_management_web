@@ -45,6 +45,10 @@ class Settings(BaseSettings):
 
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
+    sqlite_busy_timeout_seconds: int = 30
+    sqlite_journal_mode: str = "WAL"
+    sqlite_synchronous: str = "NORMAL"
+
     auth_enabled: bool = True
     auth_username: str = "admin"
     auth_password: str = ""

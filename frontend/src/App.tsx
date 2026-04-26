@@ -245,15 +245,26 @@ export default function App() {
       return;
     }
 
-    const interval = window.setInterval(() => {
+    let interval: number | undefined;
+    const pollStatus = () => {
       void fetchIndexStatus()
         .then(setIndexStatus)
         .catch(() => {
           // Status polling is best-effort; user-triggered actions still surface errors.
         });
-    }, 5000);
+    };
+    const initialDelay = 1000 + Math.floor(Math.random() * 2000);
+    const timeout = window.setTimeout(() => {
+      pollStatus();
+      interval = window.setInterval(pollStatus, 5000 + Math.floor(Math.random() * 1000));
+    }, initialDelay);
 
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearTimeout(timeout);
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+      }
+    };
   }, [canBrowse]);
 
   useEffect(() => {
