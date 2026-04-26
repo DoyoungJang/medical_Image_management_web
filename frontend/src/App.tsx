@@ -97,15 +97,6 @@ function buildSearchParams(filters: SearchFilters): URLSearchParams {
   return params;
 }
 
-function canUseManualRescan(session: SessionResponse | null): boolean {
-  if (!session?.authenticated) {
-    return false;
-  }
-  // The backend is the source of truth. If older/stale session responses omit is_admin,
-  // keep the button usable and let the protected API enforce the final permission.
-  return session.is_admin !== false;
-}
-
 export default function App() {
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [session, setSession] = useState<SessionResponse | null>(null);
@@ -143,6 +134,7 @@ export default function App() {
   const breadcrumbs = activeTree?.breadcrumbs ?? [{ name: "루트", path: "" }];
 
   const canBrowse = config !== null && (config.auth_enabled ? session?.authenticated : true);
+  const isAdmin = session?.is_admin === true;
 
   const navigate = (nextView: ViewMode) => {
     setViewMode(nextView);
@@ -171,6 +163,13 @@ export default function App() {
 
     void bootstrap();
   }, []);
+
+  useEffect(() => {
+    if (canBrowse && viewMode === "admin" && !isAdmin) {
+      setViewMode("browser");
+      window.history.replaceState({}, "", "/");
+    }
+  }, [canBrowse, isAdmin, viewMode]);
 
   useEffect(() => {
     if (!canBrowse) {
@@ -442,9 +441,11 @@ export default function App() {
             <button className={viewMode === "browser" ? "active" : "secondary"} onClick={() => navigate("browser")}>
               탐색
             </button>
-            <button className={viewMode === "admin" ? "active" : "secondary"} onClick={() => navigate("admin")}>
-              관리자
-            </button>
+            {isAdmin ? (
+              <button className={viewMode === "admin" ? "active" : "secondary"} onClick={() => navigate("admin")}>
+                관리자
+              </button>
+            ) : null}
           </div>
           <span className="chip">현재 폴더: {selectedPath || "루트"}</span>
           <button className="secondary" onClick={() => void handleLogout()}>
@@ -455,7 +456,7 @@ export default function App() {
 
       {error ? <div className="global-error">{error}</div> : null}
 
-      {viewMode === "browser" ? (
+      {viewMode === "browser" || !isAdmin ? (
         <div className={`app-layout ${treeRailExpanded ? "tree-expanded" : ""}`}>
           <aside
             className="left-rail"
@@ -555,7 +556,7 @@ export default function App() {
           facets={facets}
           loading={adminLoading}
           rescanning={rescanning}
-          canRescan={canUseManualRescan(session)}
+          canRescan={isAdmin}
           metadataKeys={metadataKeys}
           trackedMetadataKeys={trackedMetadataKeys}
           imageRootConfig={imageRootConfig}
