@@ -1,6 +1,8 @@
 import type {
   AdminImageRootResponse,
+  AdminExportRootResponse,
   ExportFilteredImagesResponse,
+  ExportStructureMode,
   ImageDetail,
   ImageListResponse,
   ImageRescanResponse,
@@ -124,6 +126,17 @@ export async function updateAdminImageRoot(rootDir: string): Promise<AdminImageR
   });
 }
 
+export async function fetchAdminExportRoot(): Promise<AdminExportRootResponse> {
+  return request<AdminExportRootResponse>("/admin/export-root");
+}
+
+export async function updateAdminExportRoot(rootDir: string): Promise<AdminExportRootResponse> {
+  return request<AdminExportRootResponse>("/admin/export-root", {
+    method: "PATCH",
+    body: JSON.stringify({ root_dir: rootDir }),
+  });
+}
+
 export async function fetchIndexStatus(): Promise<IndexStatusResponse> {
   return request<IndexStatusResponse>("/admin/index-status");
 }
@@ -142,8 +155,16 @@ export async function triggerFolderRescan(path: string): Promise<{ status: strin
 export async function exportFilteredImages(
   destinationDir: string,
   params: URLSearchParams,
+  structureMode: ExportStructureMode,
+  imageIds: number[] | null = null,
 ): Promise<ExportFilteredImagesResponse> {
-  const payload: Record<string, string | boolean | null> = { destination_dir: destinationDir };
+  const payload: Record<string, string | boolean | number[] | null> = {
+    destination_dir: destinationDir,
+    structure_mode: structureMode,
+  };
+  if (imageIds?.length) {
+    payload.image_ids = imageIds;
+  }
   params.forEach((value, key) => {
     if (key === "page" || key === "page_size") {
       return;

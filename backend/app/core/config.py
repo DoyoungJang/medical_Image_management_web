@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     auth_session_ttl_hours: int = 12
 
     default_page_size: int = 24
-    max_page_size: int = 100
+    max_page_size: int = 1000
     thumbnail_default_size: int = 256
     thumbnail_max_size: int = 512
     max_export_items: int = 5000

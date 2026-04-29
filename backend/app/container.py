@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings
 from app.db import Base, create_db_engine, create_session_factory, ensure_schema_compatibility
-from app.schemas import AdminImageRootResponse
+from app.schemas import AdminExportRootResponse, AdminImageRootResponse
 from app.services.auth import AuthService
 from app.services.export import ExportService
 from app.services.filesystem import FileSystemService
@@ -32,6 +32,7 @@ class AppContainer:
         self.runtime_config_service = RuntimeConfigService(
             self.session_factory,
             env_root_dir=self.env_png_root_dir,
+            env_export_root_dir=settings.export_root_dir,
         )
         self._root_update_lock = threading.Lock()
 
@@ -61,7 +62,8 @@ class AppContainer:
         ensure_schema_compatibility(self.engine)
         runtime_root_config = self.runtime_config_service.get_image_root_config()
         self.file_system_service.set_root_path(runtime_root_config.root_dir)
-        self.export_service.ensure_export_root()
+        runtime_export_config = self.runtime_config_service.get_export_root_config()
+        self.export_service.set_export_root_path(runtime_export_config.root_dir)
         self.search_service.initialize()
 
     def start_background_services(self) -> None:
@@ -115,4 +117,26 @@ class AppContainer:
                 changed=changed,
                 rescan_accepted=rescan_accepted,
                 missing_marked=missing_marked,
+            )
+
+    def get_export_root_config(self) -> AdminExportRootResponse:
+        runtime_config = self.runtime_config_service.get_export_root_config()
+        return AdminExportRootResponse(
+            root_dir=str(self.export_service.export_root_path),
+            env_root_dir=runtime_config.env_root_dir,
+            source=runtime_config.source,
+            changed=False,
+        )
+
+    def update_export_root(self, root_dir: str) -> AdminExportRootResponse:
+        with self._root_update_lock:
+            previous_root = self.export_service.export_root_path
+            resolved_root = self.export_service.set_export_root_path(root_dir)
+            changed = resolved_root != previous_root
+            runtime_config = self.runtime_config_service.set_export_root_dir(str(resolved_root))
+            return AdminExportRootResponse(
+                root_dir=str(self.export_service.export_root_path),
+                env_root_dir=runtime_config.env_root_dir,
+                source=runtime_config.source,
+                changed=changed,
             )

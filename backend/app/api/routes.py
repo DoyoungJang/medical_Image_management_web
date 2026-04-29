@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 from app.container import AppContainer, RootPathUpdateError
 from app.dependencies import get_container, get_db
 from app.schemas import (
+    AdminExportRootResponse,
+    AdminExportRootUpdateRequest,
     AdminImageRootResponse,
     AdminImageRootUpdateRequest,
     ExportFilteredImagesRequest,
@@ -399,7 +401,12 @@ def export_filtered_images(
         page_size=container.settings.max_export_items,
     )
     try:
-        result = container.export_service.export_filtered_images(filters, payload.destination_dir)
+        result = container.export_service.export_filtered_images(
+            filters,
+            payload.destination_dir,
+            structure_mode=payload.structure_mode,
+            image_ids=payload.image_ids,
+        )
     except PathValidationError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return ExportFilteredImagesResponse(
@@ -437,6 +444,22 @@ def update_image_root(
         return container.update_image_root(payload.root_dir, rescan=payload.rescan)
     except RootPathUpdateError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except (FileNotFoundError, NotADirectoryError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@admin_router.get("/export-root", response_model=AdminExportRootResponse, dependencies=[Depends(require_admin)])
+def get_export_root(container: AppContainer = Depends(get_container)) -> AdminExportRootResponse:
+    return container.get_export_root_config()
+
+
+@admin_router.patch("/export-root", response_model=AdminExportRootResponse, dependencies=[Depends(require_admin)])
+def update_export_root(
+    payload: AdminExportRootUpdateRequest,
+    container: AppContainer = Depends(get_container),
+) -> AdminExportRootResponse:
+    try:
+        return container.update_export_root(payload.root_dir)
     except (FileNotFoundError, NotADirectoryError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

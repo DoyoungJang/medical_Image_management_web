@@ -43,12 +43,8 @@
 
 body {
   margin: 0;
-  min-width: 1240px;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 15% -10%, rgba(49, 130, 246, 0.18), transparent 36%),
-    radial-gradient(circle at 90% 4%, rgba(0, 184, 148, 0.10), transparent 28%),
-    var(--surface-soft);
+  background: var(--surface-soft);
 }
 
 button,
@@ -489,7 +485,7 @@ select:focus {
 
 .export-panel {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(260px, 0.8fr) auto;
+  grid-template-columns: minmax(240px, 1fr) minmax(220px, 0.7fr) minmax(200px, 0.55fr) auto;
   gap: 0.85rem;
   align-items: end;
 }
@@ -504,6 +500,24 @@ select:focus {
 
 .export-panel .success-inline {
   grid-column: 1 / -1;
+}
+
+.export-actions,
+.selection-actions,
+.result-toolbar {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.result-toolbar {
+  justify-content: space-between;
+  padding: 0.75rem;
+}
+
+.export-actions {
+  justify-content: flex-end;
 }
 
 .search-grid {
@@ -577,11 +591,12 @@ select:focus {
 
 .image-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 0.95rem;
 }
 
 .image-card {
+  position: relative;
   display: grid;
   gap: 0.85rem;
   padding: 0;
@@ -592,6 +607,11 @@ select:focus {
   border: 1px solid var(--line-soft);
   box-shadow: 0 8px 22px rgba(25, 31, 40, 0.05);
   text-align: left;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
 }
 
 .image-card:hover {
@@ -603,6 +623,28 @@ select:focus {
 .image-card.selected {
   border-color: var(--blue);
   box-shadow: 0 0 0 4px rgba(49, 130, 246, 0.12), 0 18px 34px rgba(49, 130, 246, 0.16);
+}
+
+.selection-check {
+  position: absolute;
+  top: 0.78rem;
+  left: 0.78rem;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 14px rgba(25, 31, 40, 0.10);
+}
+
+.selection-check input {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
+  box-shadow: none;
 }
 
 .image-card-thumb {
@@ -627,6 +669,97 @@ select:focus {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.image-grid.image-only {
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 0.6rem;
+}
+
+.image-grid.image-only .image-card {
+  gap: 0;
+  border-radius: 14px;
+}
+
+.image-grid.image-only .image-card-thumb {
+  aspect-ratio: 1;
+  margin: 0.35rem;
+  border-radius: 10px;
+}
+
+.file-list {
+  overflow: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.file-list-row {
+  display: grid;
+  grid-template-columns: 44px minmax(220px, 1.7fr) minmax(170px, 1.1fr) 110px 180px 92px;
+  gap: 0.7rem;
+  align-items: center;
+  min-width: 900px;
+  padding: 0.58rem 0.8rem;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--text-soft);
+}
+
+.file-list-row:last-child {
+  border-bottom: 0;
+}
+
+.file-list-row:hover,
+.file-list-row.focused {
+  background: #f3f8ff;
+}
+
+.file-list-row.checked {
+  background: #eefbf7;
+}
+
+.file-list-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f7f9fb;
+  color: var(--text);
+  font-weight: 900;
+}
+
+.file-list-row input {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
+  box-shadow: none;
+}
+
+.file-name-button {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-name-button:hover {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  color: var(--blue-strong);
+}
+
+.file-list-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .image-card-body {
@@ -1064,10 +1197,6 @@ select:focus {
 }
 
 @media (max-width: 1500px) {
-  body {
-    min-width: 1180px;
-  }
-
   .app-layout {
     --tree-rail-collapsed-width: 88px;
     --tree-rail-expanded-width: 330px;
@@ -1080,5 +1209,110 @@ select:focus {
 
   .search-span-2 {
     grid-column: span 2;
+  }
+}
+
+@media (max-width: 1180px) {
+  .app-shell {
+    padding: 0.9rem;
+  }
+
+  .app-header {
+    align-items: flex-start;
+    flex-direction: column;
+    border-radius: 18px;
+  }
+
+  .header-actions,
+  .pagination,
+  .content-header {
+    justify-content: flex-start;
+  }
+
+  .app-layout,
+  .app-layout.tree-expanded {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .left-rail,
+  .detail-drawer {
+    position: static;
+  }
+
+  .detail-drawer {
+    height: auto;
+  }
+
+  .app-layout:not(.tree-expanded) .tree-panel .panel-header p,
+  .app-layout:not(.tree-expanded) .tree-empty-state,
+  .app-layout:not(.tree-expanded) .folder-name {
+    display: block;
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: hidden;
+    clip: auto;
+    white-space: nowrap;
+  }
+
+  .app-layout:not(.tree-expanded) .folder-button {
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+
+  .search-grid,
+  .export-panel,
+  .info-grid,
+  .stat-grid,
+  .admin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .export-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  button,
+  .button-link {
+    width: 100%;
+  }
+
+  .view-tabs button,
+  .folder-toggle-button,
+  .tracked-metadata-token button,
+  .file-name-button {
+    width: auto;
+  }
+
+  .search-grid,
+  .export-panel,
+  .info-grid,
+  .stat-grid,
+  .admin-grid,
+  .detail-facts,
+  .tracked-metadata-detail-grid,
+  .tracked-metadata-form,
+  .root-path-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .search-span-2 {
+    grid-column: auto;
+  }
+
+  .image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .image-grid.image-only {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  }
+
+  .page-size-control {
+    width: 100%;
+    grid-template-columns: auto minmax(90px, 1fr) auto;
   }
 }

@@ -87,6 +87,8 @@ class ImageRescanResponse(BaseModel):
 
 class ExportFilteredImagesRequest(BaseModel):
     destination_dir: str = Field(min_length=1, max_length=255)
+    structure_mode: str = "preserve"
+    image_ids: list[int] | None = None
     q: str | None = None
     directory: str | None = None
     width_min: int | None = Field(default=None, ge=0)
@@ -138,6 +140,17 @@ class AdminImageRootResponse(BaseModel):
 class AdminImageRootUpdateRequest(BaseModel):
     root_dir: str = Field(min_length=1, max_length=4096)
     rescan: bool = True
+
+
+class AdminExportRootResponse(BaseModel):
+    root_dir: str
+    env_root_dir: str
+    source: str
+    changed: bool = False
+
+
+class AdminExportRootUpdateRequest(BaseModel):
+    root_dir: str = Field(min_length=1, max_length=4096)
 
 
 class FacetCount(BaseModel):

@@ -203,6 +203,19 @@ class SearchService:
             query = query.order_by(order_column.desc(), Image.id.desc())
         return session.execute(query.limit(max(limit, 1))).scalars().all()
 
+    def get_images_by_ids(self, session: Session, image_ids: list[int], *, limit: int) -> list[Image]:
+        unique_ids = list(dict.fromkeys(image_ids))[: max(limit, 1)]
+        if not unique_ids:
+            return []
+
+        query = (
+            select(Image)
+            .where(Image.id.in_(unique_ids), Image.missing_at.is_(None))
+            .options(selectinload(Image.metadata_entries))
+        )
+        images_by_id = {image.id: image for image in session.execute(query).scalars().all()}
+        return [images_by_id[image_id] for image_id in unique_ids if image_id in images_by_id]
+
     def count_images(self, session: Session, filters: SearchFilters) -> int:
         query = select(Image.id).where(Image.missing_at.is_(None))
         count_query = select(func.count(Image.id)).where(Image.missing_at.is_(None))

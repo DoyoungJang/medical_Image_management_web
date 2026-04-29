@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import type { AdminImageRootResponse, FacetCount, IndexStatusResponse, PublicConfig } from "../types/api";
+import type { AdminExportRootResponse, AdminImageRootResponse, FacetCount, IndexStatusResponse, PublicConfig } from "../types/api";
 import { booleanLabel, statusLabel } from "../utils/labels";
 import { formatDate } from "../utils/format";
 
@@ -18,9 +18,12 @@ interface AdminPageProps {
   metadataKeys: string[];
   trackedMetadataKeys: string[];
   imageRootConfig: AdminImageRootResponse | null;
+  exportRootConfig: AdminExportRootResponse | null;
   rootUpdating: boolean;
+  exportRootUpdating: boolean;
   onRescan: () => Promise<void>;
   onUpdateImageRoot: (rootDir: string) => Promise<AdminImageRootResponse>;
+  onUpdateExportRoot: (rootDir: string) => Promise<AdminExportRootResponse>;
   onAddTrackedMetadataKey: (key: string) => Promise<void>;
   onRemoveTrackedMetadataKey: (key: string) => Promise<void>;
 }
@@ -66,9 +69,12 @@ export function AdminPage({
   metadataKeys,
   trackedMetadataKeys,
   imageRootConfig,
+  exportRootConfig,
   rootUpdating,
+  exportRootUpdating,
   onRescan,
   onUpdateImageRoot,
+  onUpdateExportRoot,
   onAddTrackedMetadataKey,
   onRemoveTrackedMetadataKey,
 }: AdminPageProps) {
@@ -78,9 +84,13 @@ export function AdminPage({
   const [rootInput, setRootInput] = useState("");
   const [rootMessage, setRootMessage] = useState("");
   const [rootError, setRootError] = useState("");
+  const [exportRootInput, setExportRootInput] = useState("");
+  const [exportRootMessage, setExportRootMessage] = useState("");
+  const [exportRootError, setExportRootError] = useState("");
   const lastStartedAt = indexStatus?.last_started_at ? formatDate(indexStatus.last_started_at) : "-";
   const lastFinishedAt = indexStatus?.last_finished_at ? formatDate(indexStatus.last_finished_at) : "-";
   const rootSourceLabel = imageRootConfig?.source === "database" ? "관리자 설정" : "환경 변수";
+  const exportRootSourceLabel = exportRootConfig?.source === "database" ? "관리자 설정" : "환경 변수";
   const rescanButtonLabel = !canRescan
     ? "관리자 권한 필요"
     : rescanning
@@ -94,6 +104,12 @@ export function AdminPage({
       setRootInput(imageRootConfig.root_dir);
     }
   }, [imageRootConfig?.root_dir]);
+
+  useEffect(() => {
+    if (exportRootConfig?.root_dir) {
+      setExportRootInput(exportRootConfig.root_dir);
+    }
+  }, [exportRootConfig?.root_dir]);
 
   return (
     <main className="admin-page">
@@ -114,6 +130,62 @@ export function AdminPage({
         <StatCard label="활성 이미지" value={indexStatus?.active_images ?? 0} />
         <StatCard label="누락 레코드" value={indexStatus?.missing_images ?? 0} />
         <StatCard label="전체 레코드" value={indexStatus?.total_images ?? 0} />
+      </section>
+
+      <section className="admin-section">
+        <div className="section-header">
+          <div>
+            <h3>서버 저장 경로</h3>
+            <p className="muted">필터 결과를 서버에 저장할 때 사용하는 기본 경로입니다. 환경변수를 바꾸지 않아도 이 설정이 우선 적용됩니다.</p>
+          </div>
+        </div>
+        <div className="info-grid">
+          <div>
+            <span>현재 저장 경로</span>
+            <strong>{exportRootConfig?.root_dir ?? "관리자 권한으로만 확인 가능"}</strong>
+          </div>
+          <div>
+            <span>설정 출처</span>
+            <strong>{exportRootConfig ? exportRootSourceLabel : "-"}</strong>
+          </div>
+          <div>
+            <span>환경 변수 기본값</span>
+            <strong>{exportRootConfig?.env_root_dir ?? "-"}</strong>
+          </div>
+        </div>
+        <form
+          className="root-path-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const nextRoot = exportRootInput.trim();
+            if (!nextRoot) {
+              return;
+            }
+            setExportRootMessage("");
+            setExportRootError("");
+            try {
+              await onUpdateExportRoot(nextRoot);
+              setExportRootMessage("서버 저장 경로를 변경했습니다.");
+            } catch (error) {
+              setExportRootError(error instanceof Error ? error.message : "서버 저장 경로를 변경하지 못했습니다.");
+            }
+          }}
+        >
+          <label>
+            새 서버 저장 경로
+            <input
+              value={exportRootInput}
+              placeholder="예: C:\\data\\exports 또는 /data/exports"
+              disabled={!canRescan || exportRootUpdating}
+              onChange={(event) => setExportRootInput(event.target.value)}
+            />
+          </label>
+          <button type="submit" disabled={!canRescan || exportRootUpdating || !exportRootInput.trim()}>
+            {exportRootUpdating ? "변경 중" : "저장 경로 변경"}
+          </button>
+        </form>
+        {exportRootMessage ? <p className="success-inline">{exportRootMessage}</p> : null}
+        {exportRootError ? <div className="error-box">{exportRootError}</div> : null}
       </section>
 
       <section className="admin-section">

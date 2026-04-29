@@ -16,12 +16,21 @@ class ImageRootConfig:
     source: str
 
 
+@dataclass(frozen=True, slots=True)
+class ExportRootConfig:
+    root_dir: str
+    env_root_dir: str
+    source: str
+
+
 class RuntimeConfigService:
     IMAGE_ROOT_DIR_KEY = "png_root_dir"
+    EXPORT_ROOT_DIR_KEY = "export_root_dir"
 
-    def __init__(self, session_factory: sessionmaker[Session], *, env_root_dir: str) -> None:
+    def __init__(self, session_factory: sessionmaker[Session], *, env_root_dir: str, env_export_root_dir: str) -> None:
         self.session_factory = session_factory
         self.env_root_dir = env_root_dir
+        self.env_export_root_dir = env_export_root_dir
 
     def get_image_root_config(self) -> ImageRootConfig:
         with self.session_factory() as session:
@@ -30,11 +39,28 @@ class RuntimeConfigService:
             return ImageRootConfig(root_dir=value, env_root_dir=self.env_root_dir, source="database")
         return ImageRootConfig(root_dir=self.env_root_dir, env_root_dir=self.env_root_dir, source="environment")
 
+    def get_export_root_config(self) -> ExportRootConfig:
+        with self.session_factory() as session:
+            value = self._get_value(session, self.EXPORT_ROOT_DIR_KEY)
+        if value:
+            return ExportRootConfig(root_dir=value, env_root_dir=self.env_export_root_dir, source="database")
+        return ExportRootConfig(
+            root_dir=self.env_export_root_dir,
+            env_root_dir=self.env_export_root_dir,
+            source="environment",
+        )
+
     def set_image_root_dir(self, root_dir: str) -> ImageRootConfig:
         with self.session_factory() as session:
             self._set_value(session, self.IMAGE_ROOT_DIR_KEY, root_dir)
             session.commit()
         return ImageRootConfig(root_dir=root_dir, env_root_dir=self.env_root_dir, source="database")
+
+    def set_export_root_dir(self, root_dir: str) -> ExportRootConfig:
+        with self.session_factory() as session:
+            self._set_value(session, self.EXPORT_ROOT_DIR_KEY, root_dir)
+            session.commit()
+        return ExportRootConfig(root_dir=root_dir, env_root_dir=self.env_export_root_dir, source="database")
 
     def _get_value(self, session: Session, key: str) -> str | None:
         setting = session.execute(select(AppSetting).where(AppSetting.key == key)).scalar_one_or_none()

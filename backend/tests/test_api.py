@@ -345,6 +345,22 @@ def test_export_filtered_images_copies_matches_under_export_root(scanned_client,
     assert (test_paths["export_root"] / "review-set" / "photo.jpg").exists()
 
 
+def test_export_filtered_images_can_flatten_and_use_selected_ids(scanned_client, test_paths: dict[str, Path]) -> None:
+    list_response = scanned_client.get("/api/images", params={"q": "nested", "page_size": 1000})
+    image_id = next(item["id"] for item in list_response.json()["items"] if item["filename"] == "deep.png")
+
+    response = scanned_client.post(
+        "/api/images/export-filtered",
+        json={"destination_dir": "flat-selection", "structure_mode": "flat", "image_ids": [image_id]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["copied"] == 1
+    assert (test_paths["export_root"] / "flat-selection" / "deep.png").exists()
+    assert not (test_paths["export_root"] / "flat-selection" / "nested" / "deeper" / "deep.png").exists()
+
+
 def test_export_filtered_images_rejects_path_traversal(scanned_client) -> None:
     response = scanned_client.post(
         "/api/images/export-filtered",
@@ -352,6 +368,20 @@ def test_export_filtered_images_rejects_path_traversal(scanned_client) -> None:
     )
 
     assert response.status_code == 400
+
+
+def test_admin_can_update_export_root_without_env_change(client, tmp_path: Path) -> None:
+    login = client.post("/api/auth/login", json={"username": "admin", "password": "secret123"})
+    assert login.status_code == 200
+    new_export_root = tmp_path / "runtime-exports"
+
+    update_response = client.patch("/api/admin/export-root", json={"root_dir": str(new_export_root)})
+
+    assert update_response.status_code == 200
+    payload = update_response.json()
+    assert payload["root_dir"] == str(new_export_root.resolve())
+    assert payload["source"] == "database"
+    assert new_export_root.exists()
 
 
 def test_admin_tracked_metadata_keys_are_returned_with_null_for_missing_values(scanned_client) -> None:

@@ -100,14 +100,19 @@ export interface TrackedMetadataKeysResponse {
   keys: string[];
 }
 
-export interface AdminImageRootResponse {
+export interface AdminPathResponse {
   root_dir: string;
   env_root_dir: string;
   source: "environment" | "database" | string;
   changed: boolean;
+}
+
+export interface AdminImageRootResponse extends AdminPathResponse {
   rescan_accepted?: boolean | null;
   missing_marked: number;
 }
+
+export type AdminExportRootResponse = AdminPathResponse;
 
 export interface ExportFilteredImagesResponse {
   status: string;
@@ -117,6 +122,9 @@ export interface ExportFilteredImagesResponse {
   total_matched: number;
   limit_applied: boolean;
 }
+
+export type ExportStructureMode = "preserve" | "flat";
+export type ImageViewMode = "grid" | "imageOnly" | "details";
 
 export interface IndexStatusResponse {
   scanning: boolean;

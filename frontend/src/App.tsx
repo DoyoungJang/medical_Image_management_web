@@ -9,8 +9,12 @@ import { SearchBar } from "./components/SearchBar";
 import { useDebouncedValue } from "./hooks/useDebouncedValue";
 import type {
   AdminImageRootResponse,
+  AdminExportRootResponse,
+  ExportStructureMode,
   ImageDetail,
   ImageListResponse,
+  ImageSummary,
+  ImageViewMode,
   IndexStatusResponse,
   MetadataFacetsResponse,
   PublicConfig,
@@ -21,6 +25,7 @@ import type {
 import {
   addTrackedMetadataKey,
   exportFilteredImages,
+  fetchAdminExportRoot,
   fetchAdminImageRoot,
   fetchFacets,
   fetchImageDetail,
@@ -37,6 +42,8 @@ import {
   rescanImage,
   triggerFolderRescan,
   triggerRescan,
+  imageFileUrl,
+  updateAdminExportRoot,
   updateAdminImageRoot,
 } from "./utils/api";
 import { SORT_LABELS } from "./utils/labels";
@@ -100,6 +107,51 @@ function buildSearchParams(filters: SearchFilters): URLSearchParams {
   return params;
 }
 
+type FileSystemDirectoryHandleLike = {
+  getDirectoryHandle: (name: string, options?: { create?: boolean }) => Promise<FileSystemDirectoryHandleLike>;
+  getFileHandle: (name: string, options?: { create?: boolean }) => Promise<{
+    createWritable: () => Promise<{
+      write: (data: Blob) => Promise<void>;
+      close: () => Promise<void>;
+    }>;
+  }>;
+};
+
+type WindowWithDirectoryPicker = Window & {
+  showDirectoryPicker?: () => Promise<FileSystemDirectoryHandleLike>;
+};
+
+function sanitizePathSegment(segment: string): string {
+  return segment.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").trim() || "unnamed";
+}
+
+function uniqueFilename(filename: string, usedNames: Set<string>): string {
+  const safeName = sanitizePathSegment(filename);
+  const dotIndex = safeName.lastIndexOf(".");
+  const stem = dotIndex > 0 ? safeName.slice(0, dotIndex) : safeName;
+  const extension = dotIndex > 0 ? safeName.slice(dotIndex) : "";
+  let candidate = safeName;
+  let index = 2;
+  while (usedNames.has(candidate.toLowerCase())) {
+    candidate = `${stem}_${index}${extension}`;
+    index += 1;
+  }
+  usedNames.add(candidate.toLowerCase());
+  return candidate;
+}
+
+async function resolveDirectoryHandle(
+  rootHandle: FileSystemDirectoryHandleLike,
+  relativePath: string,
+): Promise<FileSystemDirectoryHandleLike> {
+  const directoryParts = relativePath.split("/").slice(0, -1).filter(Boolean).map(sanitizePathSegment);
+  let currentHandle = rootHandle;
+  for (const part of directoryParts) {
+    currentHandle = await currentHandle.getDirectoryHandle(part, { create: true });
+  }
+  return currentHandle;
+}
+
 export default function App() {
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [session, setSession] = useState<SessionResponse | null>(null);
@@ -119,23 +171,28 @@ export default function App() {
   const [images, setImages] = useState<ImageListResponse | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null);
+  const [selectedImageIds, setSelectedImageIds] = useState<Set<number>>(new Set());
   const [selectedImage, setSelectedImage] = useState<ImageDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [fitToScreen, setFitToScreen] = useState(true);
+  const [imageViewMode, setImageViewMode] = useState<ImageViewMode>("grid");
 
   const [metadataKeys, setMetadataKeys] = useState<string[]>([]);
   const [trackedMetadataKeys, setTrackedMetadataKeys] = useState<string[]>([]);
   const [facets, setFacets] = useState<MetadataFacetsResponse | null>(null);
   const [indexStatus, setIndexStatus] = useState<IndexStatusResponse | null>(null);
   const [imageRootConfig, setImageRootConfig] = useState<AdminImageRootResponse | null>(null);
+  const [exportRootConfig, setExportRootConfig] = useState<AdminExportRootResponse | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [rescanning, setRescanning] = useState(false);
   const [folderRescanning, setFolderRescanning] = useState(false);
   const [rootUpdating, setRootUpdating] = useState(false);
+  const [exportRootUpdating, setExportRootUpdating] = useState(false);
   const [imageRescanning, setImageRescanning] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportDir, setExportDir] = useState("");
+  const [exportStructureMode, setExportStructureMode] = useState<ExportStructureMode>("preserve");
   const [exportMessage, setExportMessage] = useState("");
 
   const activeTree = treeCache[selectedPath];
@@ -203,6 +260,10 @@ export default function App() {
         const params = buildSearchParams(debouncedFilters);
         const imageResponse = await fetchImages(params);
         setImages(imageResponse);
+        setSelectedImageIds((current) => {
+          const visibleIds = new Set(imageResponse.items.map((item) => item.id));
+          return new Set([...current].filter((imageId) => visibleIds.has(imageId)));
+        });
         if (imageResponse.items.length && !imageResponse.items.some((item) => item.id === selectedImageId)) {
           setSelectedImageId(imageResponse.items[0].id);
         }
@@ -234,8 +295,9 @@ export default function App() {
         setFacets(facetsResponse);
         setIndexStatus(indexStatusResponse);
         if (session?.is_admin === true) {
-          const rootResponse = await fetchAdminImageRoot();
+          const [rootResponse, exportRootResponse] = await Promise.all([fetchAdminImageRoot(), fetchAdminExportRoot()]);
           setImageRootConfig(rootResponse);
+          setExportRootConfig(exportRootResponse);
         }
       } catch (sidebarError) {
         setError(sidebarError instanceof Error ? sidebarError.message : "관리자 정보를 불러오지 못했습니다.");
@@ -355,6 +417,7 @@ export default function App() {
     setSession({ authenticated: false, is_admin: false });
     setSelectedImageId(null);
     setImageRootConfig(null);
+    setExportRootConfig(null);
     navigate("browser");
   };
 
@@ -435,6 +498,93 @@ export default function App() {
     }
   };
 
+  const visibleItems = images?.items ?? [];
+  const selectedVisibleItems = visibleItems.filter((item) => selectedImageIds.has(item.id));
+  const exportTargetItems = selectedVisibleItems.length ? selectedVisibleItems : visibleItems;
+
+  const handleToggleSelected = (imageId: number) => {
+    setSelectedImageIds((current) => {
+      const next = new Set(current);
+      if (next.has(imageId)) {
+        next.delete(imageId);
+      } else {
+        next.add(imageId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllVisible = () => {
+    setSelectedImageIds((current) => {
+      const next = new Set(current);
+      visibleItems.forEach((item) => next.add(item.id));
+      return next;
+    });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedImageIds(new Set());
+  };
+
+  const writeLocalImageFile = async (
+    rootHandle: FileSystemDirectoryHandleLike,
+    item: ImageSummary,
+    usedFlatNames: Set<string>,
+  ) => {
+    const response = await fetch(imageFileUrl(item.id), { credentials: "include" });
+    if (!response.ok) {
+      throw new Error(`${item.filename} 파일을 내려받지 못했습니다.`);
+    }
+    const blob = await response.blob();
+    const directoryHandle =
+      exportStructureMode === "preserve" ? await resolveDirectoryHandle(rootHandle, item.relative_path) : rootHandle;
+    const filename =
+      exportStructureMode === "preserve"
+        ? sanitizePathSegment(item.filename)
+        : uniqueFilename(item.filename, usedFlatNames);
+    const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+  };
+
+  const handleExportLocal = async () => {
+    if (!exportTargetItems.length) {
+      setError("저장할 이미지가 없습니다.");
+      return;
+    }
+    const picker = (window as WindowWithDirectoryPicker).showDirectoryPicker;
+    if (!picker) {
+      setError("이 브라우저는 폴더 선택 저장을 지원하지 않습니다. Chrome 또는 Edge에서 다시 시도하세요.");
+      return;
+    }
+
+    setExporting(true);
+    setExportMessage("");
+    setError("");
+    try {
+      const rootHandle = await picker();
+      const usedFlatNames = new Set<string>();
+      let saved = 0;
+      for (const item of exportTargetItems) {
+        await writeLocalImageFile(rootHandle, item, usedFlatNames);
+        saved += 1;
+      }
+      setExportMessage(
+        `${saved}개 이미지를 선택한 PC 폴더에 저장했습니다. ${
+          selectedVisibleItems.length ? "선택한 파일만 저장했습니다." : "현재 표시된 필터 결과를 저장했습니다."
+        }`,
+      );
+    } catch (exportError) {
+      if (exportError instanceof DOMException && exportError.name === "AbortError") {
+        return;
+      }
+      setError(exportError instanceof Error ? exportError.message : "PC 폴더로 저장하지 못했습니다.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleExportFiltered = async () => {
     const destination = exportDir.trim();
     if (!destination) {
@@ -445,9 +595,15 @@ export default function App() {
     setExportMessage("");
     setError("");
     try {
-      const result = await exportFilteredImages(destination, buildSearchParams(filters));
+      const selectedIds = selectedVisibleItems.map((item) => item.id);
+      const result = await exportFilteredImages(
+        destination,
+        buildSearchParams(filters),
+        exportStructureMode,
+        selectedIds.length ? selectedIds : null,
+      );
       setExportMessage(
-        `${result.total_matched}개 중 ${result.copied}개를 ${result.destination_dir} 폴더에 저장했습니다.${result.skipped ? ` (${result.skipped}개 건너뜀)` : ""}${result.limit_applied ? " 최대 저장 개수 제한이 적용되었습니다." : ""}`,
+        `${result.total_matched}개 중 ${result.copied}개를 서버의 ${result.destination_dir} 폴더에 저장했습니다.${result.skipped ? ` (${result.skipped}개 건너뜀)` : ""}${result.limit_applied ? " 최대 저장 개수 제한이 적용되었습니다." : ""}`,
       );
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : "필터 결과 저장에 실패했습니다.");
@@ -461,6 +617,7 @@ export default function App() {
     setExpandedPaths(new Set([""]));
     setSelectedPath("");
     setSelectedImageId(null);
+    setSelectedImageIds(new Set());
     setSelectedImage(null);
     setImages(null);
     setFilters((current) => ({ ...DEFAULT_FILTERS, pageSize: current.pageSize }));
@@ -486,10 +643,29 @@ export default function App() {
     }
   };
 
+  const handleUpdateExportRoot = async (rootDir: string) => {
+    setExportRootUpdating(true);
+    setError("");
+    try {
+      const response = await updateAdminExportRoot(rootDir);
+      setExportRootConfig(response);
+      return response;
+    } catch (rootError) {
+      setError(rootError instanceof Error ? rootError.message : "서버 저장 경로 변경에 실패했습니다.");
+      throw rootError;
+    } finally {
+      setExportRootUpdating(false);
+    }
+  };
+
   const refreshCurrentImages = async () => {
     const params = buildSearchParams(filters);
     const imageResponse = await fetchImages(params);
     setImages(imageResponse);
+    setSelectedImageIds((current) => {
+      const visibleIds = new Set(imageResponse.items.map((item) => item.id));
+      return new Set([...current].filter((imageId) => visibleIds.has(imageId)));
+    });
     if (selectedImageId) {
       const detail = await fetchImageDetail(selectedImageId);
       setSelectedImage(detail);
@@ -510,7 +686,7 @@ export default function App() {
 
   const handlePageSizeChange = (rawValue: string) => {
     const parsedValue = Number(rawValue);
-    const nextPageSize = Math.min(config?.max_page_size ?? 100, Math.max(1, Number.isFinite(parsedValue) ? parsedValue : 1));
+    const nextPageSize = Math.min(config?.max_page_size ?? 1000, Math.max(1, Number.isFinite(parsedValue) ? parsedValue : 1));
     setFilters((current) => ({ ...current, pageSize: nextPageSize, page: 1 }));
   };
 
@@ -635,22 +811,69 @@ export default function App() {
               </div>
             </div>
 
+            <div className="panel result-toolbar">
+              <div className="view-tabs" role="tablist" aria-label="이미지 보기 방식">
+                <button
+                  className={imageViewMode === "grid" ? "active" : "secondary"}
+                  onClick={() => setImageViewMode("grid")}
+                >
+                  카드
+                </button>
+                <button
+                  className={imageViewMode === "imageOnly" ? "active" : "secondary"}
+                  onClick={() => setImageViewMode("imageOnly")}
+                >
+                  이미지만
+                </button>
+                <button
+                  className={imageViewMode === "details" ? "active" : "secondary"}
+                  onClick={() => setImageViewMode("details")}
+                >
+                  자세히
+                </button>
+              </div>
+              <div className="selection-actions">
+                <span className="chip">선택 {selectedImageIds.size}개</span>
+                <button className="secondary" onClick={handleSelectAllVisible} disabled={!visibleItems.length}>
+                  표시된 파일 선택
+                </button>
+                <button className="secondary" onClick={handleClearSelection} disabled={!selectedImageIds.size}>
+                  선택 해제
+                </button>
+              </div>
+            </div>
+
             <div className="panel export-panel">
               <div>
                 <strong>필터 결과 일괄 저장</strong>
-                <p className="muted">현재 검색/필터 조건에 맞는 전체 이미지를 서버의 EXPORT_ROOT_DIR 아래 폴더로 복사합니다.</p>
+                <p className="muted">선택한 파일이 있으면 선택 파일만, 없으면 현재 표시된 필터 결과를 저장합니다.</p>
               </div>
               <label>
-                저장 폴더명
+                서버 저장 폴더명
                 <input
                   value={exportDir}
                   placeholder="예: 2026-04-review"
                   onChange={(event) => setExportDir(event.target.value)}
                 />
               </label>
-              <button className="secondary" disabled={exporting || !exportDir.trim()} onClick={() => void handleExportFiltered()}>
-                {exporting ? "저장 중" : "필터 결과 전체 저장"}
-              </button>
+              <label>
+                폴더 구조
+                <select
+                  value={exportStructureMode}
+                  onChange={(event) => setExportStructureMode(event.target.value as ExportStructureMode)}
+                >
+                  <option value="flat">한 폴더에 모두 저장</option>
+                  <option value="preserve">원래 폴더 구조 유지</option>
+                </select>
+              </label>
+              <div className="export-actions">
+                <button className="secondary" disabled={exporting || !exportTargetItems.length} onClick={() => void handleExportLocal()}>
+                  {exporting ? "저장 중" : "내 PC 폴더 선택 저장"}
+                </button>
+                <button className="secondary" disabled={exporting || !exportDir.trim()} onClick={() => void handleExportFiltered()}>
+                  서버에 저장
+                </button>
+              </div>
               {exportMessage ? <p className="success-inline">{exportMessage}</p> : null}
             </div>
 
@@ -658,12 +881,15 @@ export default function App() {
               items={images?.items ?? []}
               loading={imageLoading}
               selectedImageId={selectedImageId}
+              selectedImageIds={selectedImageIds}
               thumbnailSize={config.thumbnail_default_size}
+              viewMode={imageViewMode}
               onSelect={(imageId) => {
                 setSelectedImageId(imageId);
                 setZoom(1);
                 setFitToScreen(true);
               }}
+              onToggleSelected={handleToggleSelected}
             />
           </main>
 
@@ -691,9 +917,12 @@ export default function App() {
           metadataKeys={metadataKeys}
           trackedMetadataKeys={trackedMetadataKeys}
           imageRootConfig={imageRootConfig}
+          exportRootConfig={exportRootConfig}
           rootUpdating={rootUpdating}
+          exportRootUpdating={exportRootUpdating}
           onRescan={handleRescan}
           onUpdateImageRoot={handleUpdateImageRoot}
+          onUpdateExportRoot={handleUpdateExportRoot}
           onAddTrackedMetadataKey={handleAddTrackedMetadataKey}
           onRemoveTrackedMetadataKey={handleRemoveTrackedMetadataKey}
         />
