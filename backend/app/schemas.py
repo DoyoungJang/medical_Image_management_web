@@ -15,6 +15,8 @@ class PublicConfigResponse(BaseModel):
     max_page_size: int
     thumbnail_default_size: int
     thumbnail_max_size: int
+    export_storage_backend: str
+    object_storage_configured: bool
 
 
 class BreadcrumbItem(BaseModel):
@@ -85,9 +87,15 @@ class ImageRescanResponse(BaseModel):
     image: ImageDetailResponse
 
 
+class MetadataFilterRequest(BaseModel):
+    key: str = Field(min_length=1, max_length=255)
+    value: str | None = Field(default=None, max_length=4096)
+
+
 class ExportFilteredImagesRequest(BaseModel):
     destination_dir: str = Field(min_length=1, max_length=255)
     structure_mode: str = "preserve"
+    storage_backend: str | None = None
     image_ids: list[int] | None = None
     q: str | None = None
     directory: str | None = None
@@ -103,6 +111,7 @@ class ExportFilteredImagesRequest(BaseModel):
     status_filter: str | None = None
     metadata_key: str | None = None
     metadata_value: str | None = None
+    metadata_filters: list[MetadataFilterRequest] = Field(default_factory=list)
     sort: str = "modified_time"
     order: str = "desc"
 

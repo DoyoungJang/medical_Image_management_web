@@ -2,6 +2,7 @@ import type {
   AdminImageRootResponse,
   AdminExportRootResponse,
   ExportFilteredImagesResponse,
+  ExportStorageBackend,
   ExportStructureMode,
   ImageDetail,
   ImageListResponse,
@@ -156,11 +157,13 @@ export async function exportFilteredImages(
   destinationDir: string,
   params: URLSearchParams,
   structureMode: ExportStructureMode,
+  storageBackend: ExportStorageBackend,
   imageIds: number[] | null = null,
 ): Promise<ExportFilteredImagesResponse> {
-  const payload: Record<string, string | boolean | number[] | null> = {
+  const payload: Record<string, string | boolean | number[] | Array<{ key: string; value: string }> | null> = {
     destination_dir: destinationDir,
     structure_mode: structureMode,
+    storage_backend: storageBackend,
   };
   if (imageIds?.length) {
     payload.image_ids = imageIds;
@@ -177,8 +180,19 @@ export async function exportFilteredImages(
       payload.has_alpha = value === "true";
       return;
     }
+    if (key === "metadata_key" || key === "metadata_value") {
+      return;
+    }
     payload[key] = value;
   });
+  const metadataKeys = params.getAll("metadata_key");
+  const metadataValues = params.getAll("metadata_value");
+  const metadataFilters = metadataKeys
+    .map((key, index) => ({ key, value: metadataValues[index] ?? "" }))
+    .filter((item) => item.key.trim());
+  if (metadataFilters.length) {
+    payload.metadata_filters = metadataFilters;
+  }
   return request<ExportFilteredImagesResponse>("/images/export-filtered", {
     method: "POST",
     body: JSON.stringify(payload),

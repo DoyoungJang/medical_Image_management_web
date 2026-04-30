@@ -12,6 +12,7 @@ from app.services.export import ExportService
 from app.services.filesystem import FileSystemService
 from app.services.indexing import IndexService
 from app.services.metadata import MetadataExtractor
+from app.services.object_storage import ObjectStorageService
 from app.services.periodic_scan import PeriodicScanService
 from app.services.runtime_config import RuntimeConfigService
 from app.services.search import SearchService
@@ -39,12 +40,14 @@ class AppContainer:
         self.file_system_service = FileSystemService(settings)
         self.metadata_extractor = MetadataExtractor(settings)
         self.search_service = SearchService(settings, self.session_factory)
+        self.object_storage_service = ObjectStorageService(settings)
         self.thumbnail_service = ThumbnailService(settings, self.file_system_service, self.session_factory)
         self.export_service = ExportService(
             settings,
             self.session_factory,
             self.file_system_service,
             self.search_service,
+            self.object_storage_service,
         )
         self.index_service = IndexService(
             settings=settings,

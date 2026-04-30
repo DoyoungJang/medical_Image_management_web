@@ -333,6 +333,34 @@ def test_metadata_key_search(scanned_client) -> None:
     assert any(item["filename"] == "meta.png" for item in response.json()["items"])
 
 
+def test_metadata_summary_hides_low_value_metadata_keys(scanned_client) -> None:
+    response = scanned_client.get("/api/images", params={"q": "photo"})
+
+    assert response.status_code == 200
+    item = next(item for item in response.json()["items"] if item["filename"] == "photo.jpg")
+    summary_keys = {summary["key"] for summary in item["metadata_summary"]}
+    assert "icc_profile.present" not in summary_keys
+    assert "icc_profile.summary" not in summary_keys
+    assert "exif_present" not in summary_keys
+
+
+def test_multiple_metadata_filters_are_combined_with_and(scanned_client) -> None:
+    response = scanned_client.get(
+        "/api/images",
+        params=[
+            ("metadata_key", "textual_metadata.Author"),
+            ("metadata_value", "홍길동"),
+            ("metadata_key", "textual_metadata.View"),
+            ("metadata_value", "3VV"),
+        ],
+    )
+
+    assert response.status_code == 200
+    filenames = {item["filename"] for item in response.json()["items"]}
+    assert "meta.png" in filenames
+    assert "plain.png" not in filenames
+
+
 def test_export_filtered_images_copies_matches_under_export_root(scanned_client, test_paths: dict[str, Path]) -> None:
     response = scanned_client.post(
         "/api/images/export-filtered",
@@ -359,6 +387,37 @@ def test_export_filtered_images_can_flatten_and_use_selected_ids(scanned_client,
     assert payload["copied"] == 1
     assert (test_paths["export_root"] / "flat-selection" / "deep.png").exists()
     assert not (test_paths["export_root"] / "flat-selection" / "nested" / "deeper" / "deep.png").exists()
+
+
+def test_export_filtered_images_can_upload_to_object_storage(scanned_client, monkeypatch) -> None:
+    container = scanned_client.app.state.container
+    container.settings.object_storage_endpoint_url = "http://minio:9000"
+    container.settings.object_storage_access_key_id = "access"
+    container.settings.object_storage_secret_access_key = "secret"
+    container.settings.object_storage_bucket = "medical-images"
+    container.settings.object_storage_prefix = "lakefs/main"
+    uploaded: list[tuple[Path, str, str]] = []
+
+    def fake_upload(source_path: Path, object_key: str, *, filename: str):
+        uploaded.append((source_path, object_key, filename))
+
+    monkeypatch.setattr(container.object_storage_service, "upload_file", fake_upload)
+
+    response = scanned_client.post(
+        "/api/images/export-filtered",
+        json={
+            "destination_dir": "review-set",
+            "q": "photo",
+            "storage_backend": "object",
+            "structure_mode": "preserve",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["copied"] >= 1
+    assert payload["destination_dir"] == "s3://medical-images/lakefs/main/review-set"
+    assert any(object_key.endswith("review-set/photo.jpg") for _source_path, object_key, _filename in uploaded)
 
 
 def test_export_filtered_images_rejects_path_traversal(scanned_client) -> None:

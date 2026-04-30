@@ -485,7 +485,7 @@ select:focus {
 
 .export-panel {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(220px, 0.7fr) minmax(200px, 0.55fr) auto;
+  grid-template-columns: minmax(240px, 1fr) minmax(210px, 0.65fr) minmax(190px, 0.55fr) minmax(220px, 0.62fr) auto;
   gap: 0.85rem;
   align-items: end;
 }
@@ -500,6 +500,30 @@ select:focus {
 
 .export-panel .success-inline {
   grid-column: 1 / -1;
+}
+
+.metadata-filter-editor {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: #f7f9fb;
+}
+
+.metadata-filter-header,
+.metadata-filter-row {
+  display: grid;
+  gap: 0.7rem;
+  align-items: end;
+}
+
+.metadata-filter-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.metadata-filter-row {
+  grid-template-columns: minmax(160px, 0.8fr) minmax(180px, 1fr) auto;
 }
 
 .export-actions,
@@ -1263,6 +1287,7 @@ select:focus {
 
   .search-grid,
   .export-panel,
+  .metadata-filter-row,
   .info-grid,
   .stat-grid,
   .admin-grid {
@@ -1289,6 +1314,8 @@ select:focus {
 
   .search-grid,
   .export-panel,
+  .metadata-filter-header,
+  .metadata-filter-row,
   .info-grid,
   .stat-grid,
   .admin-grid,

@@ -7,6 +7,8 @@ export interface PublicConfig {
   max_page_size: number;
   thumbnail_default_size: number;
   thumbnail_max_size: number;
+  export_storage_backend: ExportStorageBackend;
+  object_storage_configured: boolean;
 }
 
 export interface SessionResponse {
@@ -124,7 +126,13 @@ export interface ExportFilteredImagesResponse {
 }
 
 export type ExportStructureMode = "preserve" | "flat";
+export type ExportStorageBackend = "local" | "object";
 export type ImageViewMode = "grid" | "imageOnly" | "details";
+
+export interface MetadataFilter {
+  key: string;
+  value: string;
+}
 
 export interface IndexStatusResponse {
   scanning: boolean;
@@ -149,8 +157,7 @@ export interface SearchFilters {
   sizeMax: string;
   modifiedFrom: string;
   modifiedTo: string;
-  metadataKey: string;
-  metadataValue: string;
+  metadataFilters: MetadataFilter[];
   hasAlpha: "" | "true" | "false";
   status: string;
   sort: "filename" | "path" | "file_size" | "modified_time" | "width" | "height";

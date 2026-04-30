@@ -34,7 +34,8 @@ from app.schemas import (
     TrackedMetadataKeysResponse,
 )
 from app.services.filesystem import PathValidationError
-from app.services.search import SearchFilters
+from app.services.object_storage import ObjectStorageError
+from app.services.search import MetadataFilter, SearchFilters
 from app.services.thumbnails import ThumbnailError
 
 public_router = APIRouter()
@@ -73,6 +74,22 @@ def image_detail_response(image, db: Session, container: AppContainer) -> ImageD
     )
 
 
+def metadata_filters_from_query(
+    metadata_key: list[str] | None,
+    metadata_value: list[str] | None,
+) -> list[MetadataFilter]:
+    keys = metadata_key or []
+    values = metadata_value or []
+    filters: list[MetadataFilter] = []
+    for index, key in enumerate(keys):
+        cleaned_key = key.strip()
+        if not cleaned_key:
+            continue
+        value = values[index].strip() if index < len(values) and values[index] else None
+        filters.append(MetadataFilter(key=cleaned_key, value=value or None))
+    return filters
+
+
 @public_router.get("/health", response_model=HealthResponse)
 def health_check(db: Session = Depends(get_db)) -> HealthResponse:
     db.execute(text("SELECT 1"))
@@ -91,6 +108,8 @@ def public_config(container: AppContainer = Depends(get_container)) -> PublicCon
         max_page_size=settings.max_page_size,
         thumbnail_default_size=settings.thumbnail_default_size,
         thumbnail_max_size=settings.thumbnail_max_size,
+        export_storage_backend=settings.export_storage_backend,
+        object_storage_configured=container.object_storage_service.is_configured(),
     )
 
 
@@ -156,8 +175,8 @@ def list_images(
     modified_to: datetime | None = Query(default=None),
     has_alpha: bool | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
-    metadata_key: str | None = Query(default=None),
-    metadata_value: str | None = Query(default=None),
+    metadata_key: list[str] | None = Query(default=None),
+    metadata_value: list[str] | None = Query(default=None),
     sort: Literal["filename", "path", "file_size", "modified_time", "width", "height"] = Query(default="modified_time"),
     order: Literal["asc", "desc"] = Query(default="desc"),
     page: int = Query(default=1, ge=1),
@@ -185,8 +204,7 @@ def list_images(
         modified_to=modified_to,
         has_alpha=has_alpha,
         status=status_filter,
-        metadata_key=metadata_key,
-        metadata_value=metadata_value,
+        metadata_filters=metadata_filters_from_query(metadata_key, metadata_value),
         sort=sort,
         order=order,
         page=page,
@@ -306,8 +324,8 @@ def get_metadata_facets(
     modified_to: datetime | None = Query(default=None),
     has_alpha: bool | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
-    metadata_key: str | None = Query(default=None),
-    metadata_value: str | None = Query(default=None),
+    metadata_key: list[str] | None = Query(default=None),
+    metadata_value: list[str] | None = Query(default=None),
     db: Session = Depends(get_db),
     container: AppContainer = Depends(get_container),
 ) -> MetadataFacetsResponse:
@@ -331,8 +349,7 @@ def get_metadata_facets(
         modified_to=modified_to,
         has_alpha=has_alpha,
         status=status_filter,
-        metadata_key=metadata_key,
-        metadata_value=metadata_value,
+        metadata_filters=metadata_filters_from_query(metadata_key, metadata_value),
     )
     status_counts, directory_counts, common_metadata_keys = container.search_service.get_metadata_facets(db, filters)
     return MetadataFacetsResponse(
@@ -395,6 +412,10 @@ def export_filtered_images(
         status=payload.status_filter,
         metadata_key=payload.metadata_key,
         metadata_value=payload.metadata_value,
+        metadata_filters=[
+            MetadataFilter(key=item.key, value=item.value)
+            for item in payload.metadata_filters
+        ],
         sort=payload.sort,
         order=payload.order,
         page=1,
@@ -406,8 +427,9 @@ def export_filtered_images(
             payload.destination_dir,
             structure_mode=payload.structure_mode,
             image_ids=payload.image_ids,
+            storage_backend=payload.storage_backend,
         )
-    except PathValidationError as exc:
+    except (PathValidationError, ObjectStorageError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return ExportFilteredImagesResponse(
         status="completed",

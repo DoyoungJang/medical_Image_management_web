@@ -64,6 +64,15 @@ class Settings(BaseSettings):
     thumbnail_max_size: int = 512
     max_export_items: int = 5000
 
+    export_storage_backend: Literal["local", "object"] = "local"
+    object_storage_endpoint_url: str = ""
+    object_storage_access_key_id: str = ""
+    object_storage_secret_access_key: str = ""
+    object_storage_region: str = "us-east-1"
+    object_storage_bucket: str = ""
+    object_storage_prefix: str = ""
+    object_storage_force_path_style: bool = True
+
     admin_rescan_cooldown_seconds: int = 10
     max_metadata_text_length: int = 200_000
     max_png_text_bytes: int = 512_000

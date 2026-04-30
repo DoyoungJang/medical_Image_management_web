@@ -1,4 +1,4 @@
-import type { SearchFilters } from "../types/api";
+import type { MetadataFilter, SearchFilters } from "../types/api";
 import { STATUS_LABELS } from "../utils/labels";
 
 interface SearchBarProps {
@@ -9,7 +9,27 @@ interface SearchBarProps {
   onReset: () => void;
 }
 
+function normalizeMetadataFilters(filters: MetadataFilter[]): MetadataFilter[] {
+  return filters.length ? filters : [{ key: "", value: "" }];
+}
+
 export function SearchBar({ filters, metadataKeys, onChange, onSubmit, onReset }: SearchBarProps) {
+  const metadataFilters = normalizeMetadataFilters(filters.metadataFilters);
+
+  const updateMetadataFilter = (index: number, patch: Partial<MetadataFilter>) => {
+    const nextFilters = metadataFilters.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
+    onChange({ metadataFilters: nextFilters, page: 1 });
+  };
+
+  const addMetadataFilter = () => {
+    onChange({ metadataFilters: [...metadataFilters, { key: "", value: "" }], page: 1 });
+  };
+
+  const removeMetadataFilter = (index: number) => {
+    const nextFilters = metadataFilters.filter((_item, itemIndex) => itemIndex !== index);
+    onChange({ metadataFilters: normalizeMetadataFilters(nextFilters), page: 1 });
+  };
+
   return (
     <div className="panel search-panel">
       <div className="search-grid">
@@ -26,23 +46,48 @@ export function SearchBar({ filters, metadataKeys, onChange, onSubmit, onReset }
             }}
           />
         </label>
-        <label>
-          메타데이터 키
-          <input
-            list="metadata-keys"
-            value={filters.metadataKey}
-            onChange={(event) => onChange({ metadataKey: event.target.value, page: 1 })}
-          />
+        <div className="metadata-filter-editor search-span-2">
+          <div className="metadata-filter-header">
+            <strong>메타데이터 필터</strong>
+            <button type="button" className="secondary" onClick={addMetadataFilter}>
+              조건 추가
+            </button>
+          </div>
+          {metadataFilters.map((metadataFilter, index) => (
+            <div className="metadata-filter-row" key={`metadata-filter-${index}`}>
+              <label>
+                Key
+                <input
+                  list="metadata-keys"
+                  value={metadataFilter.key}
+                  placeholder="예: View"
+                  onChange={(event) => updateMetadataFilter(index, { key: event.target.value })}
+                />
+              </label>
+              <label>
+                Value
+                <input
+                  value={metadataFilter.value}
+                  placeholder="비워두면 key 존재 여부만 필터"
+                  onChange={(event) => updateMetadataFilter(index, { value: event.target.value })}
+                />
+              </label>
+              <button
+                type="button"
+                className="secondary"
+                disabled={metadataFilters.length <= 1}
+                onClick={() => removeMetadataFilter(index)}
+              >
+                제거
+              </button>
+            </div>
+          ))}
           <datalist id="metadata-keys">
             {metadataKeys.map((key) => (
               <option key={key} value={key} />
             ))}
           </datalist>
-        </label>
-        <label>
-          메타데이터 값
-          <input value={filters.metadataValue} onChange={(event) => onChange({ metadataValue: event.target.value, page: 1 })} />
-        </label>
+        </div>
         <label>
           너비 최소
           <input value={filters.widthMin} onChange={(event) => onChange({ widthMin: event.target.value, page: 1 })} />
@@ -85,7 +130,10 @@ export function SearchBar({ filters, metadataKeys, onChange, onSubmit, onReset }
         </label>
         <label>
           알파 채널
-          <select value={filters.hasAlpha} onChange={(event) => onChange({ hasAlpha: event.target.value as SearchFilters["hasAlpha"], page: 1 })}>
+          <select
+            value={filters.hasAlpha}
+            onChange={(event) => onChange({ hasAlpha: event.target.value as SearchFilters["hasAlpha"], page: 1 })}
+          >
             <option value="">전체</option>
             <option value="true">있음</option>
             <option value="false">없음</option>

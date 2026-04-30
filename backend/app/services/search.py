@@ -14,6 +14,28 @@ from app.models import Folder, Image, MetadataKV, TrackedMetadataKey
 from app.schemas import BreadcrumbItem, FacetCount, FolderNode, ImageSummaryResponse, MetadataSummaryItem
 
 
+HIDDEN_METADATA_SUMMARY_KEYS = {
+    "pillow_info.jfif_density[1]",
+    "pillow_info.jfif_unit",
+    "pillow_info.jfif_version[0]",
+    "pillow_info.jfif_version[1]",
+    "pillow_info.xmp",
+    "relative_path",
+    "textual_metadata.xmp[0]",
+    "icc_profile.present",
+    "icc_profile.summary",
+    "dpi.x",
+    "dpi.y",
+    "exif_present",
+}
+
+
+@dataclass(slots=True)
+class MetadataFilter:
+    key: str
+    value: str | None = None
+
+
 @dataclass(slots=True)
 class SearchFilters:
     q: str | None = None
@@ -30,6 +52,7 @@ class SearchFilters:
     status: str | None = None
     metadata_key: str | None = None
     metadata_value: str | None = None
+    metadata_filters: list[MetadataFilter] | None = None
     sort: str = "modified_time"
     order: str = "desc"
     page: int = 1
@@ -251,19 +274,19 @@ class SearchService:
         if filters.status:
             conditions.append(Image.status == filters.status)
 
-        if filters.metadata_key and filters.metadata_value:
+        for metadata_filter in self._normalized_metadata_filters(filters):
             conditions.append(
                 exists(
                     select(MetadataKV.id).where(
                         MetadataKV.image_id == Image.id,
-                        MetadataKV.key == filters.metadata_key,
-                        MetadataKV.value_text.ilike(f"%{filters.metadata_value}%"),
+                        MetadataKV.key == metadata_filter.key,
+                        *(
+                            [MetadataKV.value_text.ilike(f"%{metadata_filter.value}%")]
+                            if metadata_filter.value
+                            else []
+                        ),
                     )
                 )
-            )
-        elif filters.metadata_key:
-            conditions.append(
-                exists(select(MetadataKV.id).where(MetadataKV.image_id == Image.id, MetadataKV.key == filters.metadata_key))
             )
 
         if filters.q:
@@ -299,6 +322,20 @@ class SearchService:
             query = query.params(**params)
             count_query = count_query.params(**params)
         return query, count_query
+
+    def _normalized_metadata_filters(self, filters: SearchFilters) -> list[MetadataFilter]:
+        metadata_filters = list(filters.metadata_filters or [])
+        if filters.metadata_key:
+            metadata_filters.append(MetadataFilter(key=filters.metadata_key, value=filters.metadata_value))
+
+        normalized: list[MetadataFilter] = []
+        for metadata_filter in metadata_filters:
+            key = metadata_filter.key.strip()
+            if not key:
+                continue
+            value = metadata_filter.value.strip() if metadata_filter.value else None
+            normalized.append(MetadataFilter(key=key, value=value or None))
+        return normalized
 
     def _build_fts_query(self, raw_query: str) -> str:
         tokens = re.findall(r"[0-9A-Za-z_\u3131-\u318E\uAC00-\uD7A3]+", raw_query)
@@ -357,8 +394,10 @@ class SearchService:
     def to_image_summary(self, image: Image, tracked_keys: list[str] | None = None) -> ImageSummaryResponse:
         metadata_summary = [
             MetadataSummaryItem(key=entry.key, value=entry.value_text)
-            for entry in sorted(image.metadata_entries, key=lambda item: item.key)[:3]
+            for entry in sorted(image.metadata_entries, key=lambda item: item.key)
+            if entry.key not in HIDDEN_METADATA_SUMMARY_KEYS
         ]
+        metadata_summary = metadata_summary[:3]
         tracked_metadata = self._tracked_metadata_for_image(image, tracked_keys or [])
         return ImageSummaryResponse(
             id=image.id,

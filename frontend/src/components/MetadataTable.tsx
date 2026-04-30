@@ -1,11 +1,12 @@
 import { flattenMetadata } from "../utils/format";
+import { shouldShowMetadataRow } from "../utils/metadataVisibility";
 
 interface MetadataTableProps {
   metadata: Record<string, unknown>;
 }
 
 export function MetadataTable({ metadata }: MetadataTableProps) {
-  const rows = flattenMetadata(metadata);
+  const rows = flattenMetadata(metadata).filter((row) => shouldShowMetadataRow(row.key));
 
   return (
     <div className="metadata-table">

@@ -1,7 +1,6 @@
-import type { ImageSummary } from "../types/api";
-import type { ImageViewMode } from "../types/api";
-import { formatBytes, formatDate } from "../utils/format";
+import type { ImageSummary, ImageViewMode } from "../types/api";
 import { imageThumbnailUrl } from "../utils/api";
+import { formatBytes, formatDate } from "../utils/format";
 import { statusLabel } from "../utils/labels";
 
 interface ImageGridProps {
@@ -11,8 +10,8 @@ interface ImageGridProps {
   selectedImageIds: Set<number>;
   thumbnailSize: number;
   viewMode: ImageViewMode;
-  onSelect: (imageId: number) => void;
-  onToggleSelected: (imageId: number) => void;
+  onSelect: (imageId: number, shiftKey?: boolean) => void;
+  onToggleSelected: (imageId: number, shiftKey?: boolean) => void;
 }
 
 export function ImageGrid({
@@ -51,16 +50,19 @@ export function ImageGrid({
               selectedImageIds.has(item.id) ? "checked" : ""
             }`}
             role="row"
-            onClick={() => onSelect(item.id)}
+            onClick={(event) => onSelect(item.id, event.shiftKey)}
           >
             <input
               type="checkbox"
               checked={selectedImageIds.has(item.id)}
               aria-label={`${item.filename} 선택`}
-              onClick={(event) => event.stopPropagation()}
-              onChange={() => onToggleSelected(item.id)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleSelected(item.id, event.shiftKey);
+              }}
+              onChange={() => undefined}
             />
-            <button className="file-name-button" type="button" onClick={() => onSelect(item.id)}>
+            <button className="file-name-button" type="button" onClick={(event) => onSelect(item.id, event.shiftKey)}>
               {item.filename}
             </button>
             <span>{item.directory || "루트"}</span>
@@ -81,11 +83,11 @@ export function ImageGrid({
           className={`image-card ${selectedImageId === item.id ? "selected" : ""}`}
           role="button"
           tabIndex={0}
-          onClick={() => onSelect(item.id)}
+          onClick={(event) => onSelect(item.id, event.shiftKey)}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();
-              onSelect(item.id);
+              onSelect(item.id, event.shiftKey);
             }
           }}
         >
@@ -94,7 +96,8 @@ export function ImageGrid({
               type="checkbox"
               checked={selectedImageIds.has(item.id)}
               aria-label={`${item.filename} 선택`}
-              onChange={() => onToggleSelected(item.id)}
+              onClick={(event) => onToggleSelected(item.id, event.shiftKey)}
+              onChange={() => undefined}
             />
           </span>
           <div className="image-card-thumb">

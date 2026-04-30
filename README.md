@@ -95,6 +95,14 @@ cd ..
 $env:PNG_ROOT_DIR="C:\data\company-png"
 $env:THUMBNAIL_CACHE_DIR="C:\png-browser-cache"
 $env:EXPORT_ROOT_DIR="C:\png-browser-exports"
+$env:EXPORT_STORAGE_BACKEND="local"
+$env:OBJECT_STORAGE_ENDPOINT_URL=""
+$env:OBJECT_STORAGE_ACCESS_KEY_ID=""
+$env:OBJECT_STORAGE_SECRET_ACCESS_KEY=""
+$env:OBJECT_STORAGE_REGION="us-east-1"
+$env:OBJECT_STORAGE_BUCKET=""
+$env:OBJECT_STORAGE_PREFIX=""
+$env:OBJECT_STORAGE_FORCE_PATH_STYLE="true"
 $env:DATABASE_URL="sqlite:///./png_browser.db"
 $env:SQLITE_BUSY_TIMEOUT_SECONDS="30"
 $env:SQLITE_JOURNAL_MODE="WAL"
@@ -215,6 +223,14 @@ cd ..
 export PNG_ROOT_DIR=/data/company-png
 export THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails
 export EXPORT_ROOT_DIR=/var/lib/png-browser/exports
+export EXPORT_STORAGE_BACKEND=local
+export OBJECT_STORAGE_ENDPOINT_URL=
+export OBJECT_STORAGE_ACCESS_KEY_ID=
+export OBJECT_STORAGE_SECRET_ACCESS_KEY=
+export OBJECT_STORAGE_REGION=us-east-1
+export OBJECT_STORAGE_BUCKET=
+export OBJECT_STORAGE_PREFIX=
+export OBJECT_STORAGE_FORCE_PATH_STYLE=true
 export DATABASE_URL=sqlite:////var/lib/png-browser/app.db
 export SQLITE_BUSY_TIMEOUT_SECONDS=30
 export SQLITE_JOURNAL_MODE=WAL
@@ -289,6 +305,14 @@ APP_PORT=8080
 PNG_ROOT_DIR=/data/company-png
 THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails
 EXPORT_ROOT_DIR=/var/lib/png-browser/exports
+EXPORT_STORAGE_BACKEND=local
+OBJECT_STORAGE_ENDPOINT_URL=
+OBJECT_STORAGE_ACCESS_KEY_ID=
+OBJECT_STORAGE_SECRET_ACCESS_KEY=
+OBJECT_STORAGE_REGION=us-east-1
+OBJECT_STORAGE_BUCKET=
+OBJECT_STORAGE_PREFIX=
+OBJECT_STORAGE_FORCE_PATH_STYLE=true
 DATABASE_URL=sqlite:////var/lib/png-browser/app.db
 SQLITE_BUSY_TIMEOUT_SECONDS=30
 SQLITE_JOURNAL_MODE=WAL
@@ -345,6 +369,8 @@ AUTH_PASSWORD_HASH=
 운영 서버에서는 `admin / admin`을 그대로 사용하지 말고, `AUTH_PASSWORD`를 더 강한 비밀번호로 바꾸거나 `AUTH_PASSWORD_HASH`를 사용하세요. `AUTH_PASSWORD_HASH`를 사용할 때는 평문 비밀번호 대신 bcrypt 해시를 넣습니다. 관리자 페이지의 수동 재스캔은 `AUTH_USERNAME`으로 설정된 관리자 계정만 실행할 수 있습니다.
 
 관리자 페이지의 `이미지 루트 경로`에서는 현재 탐색 루트를 변경할 수 있습니다. `서버 저장 경로`에서는 필터 결과를 서버에 저장할 때 사용하는 루트도 변경할 수 있습니다. 변경한 경로는 환경변수 파일을 직접 수정하지 않고 SQLite DB의 런타임 설정으로 저장됩니다. 서버 재시작 후에도 관리자 설정이 우선 적용되며, 이미지 루트가 새 경로로 변경되면 기존 목록은 누락 처리되고 백그라운드 재스캔이 요청됩니다.
+
+MinIO 또는 lakeFS S3 Gateway로 저장 결과를 관리하려면 `OBJECT_STORAGE_*` 값을 설정하고 탐색 화면의 저장 백엔드에서 `MinIO/lakeFS 오브젝트 스토리지`를 선택합니다. 기본값은 기존 동작과 같은 `EXPORT_STORAGE_BACKEND=local`입니다. lakeFS를 사용할 때는 lakeFS의 S3 호환 엔드포인트를 `OBJECT_STORAGE_ENDPOINT_URL`에 넣고, repository/branch 또는 운영 규칙에 맞는 경로를 `OBJECT_STORAGE_BUCKET`과 `OBJECT_STORAGE_PREFIX`로 나눠 지정하세요.
 
 ### Windows PowerShell
 

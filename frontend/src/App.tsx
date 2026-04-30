@@ -10,6 +10,7 @@ import { useDebouncedValue } from "./hooks/useDebouncedValue";
 import type {
   AdminImageRootResponse,
   AdminExportRootResponse,
+  ExportStorageBackend,
   ExportStructureMode,
   ImageDetail,
   ImageListResponse,
@@ -18,6 +19,7 @@ import type {
   IndexStatusResponse,
   MetadataFacetsResponse,
   PublicConfig,
+  MetadataFilter,
   SearchFilters,
   SessionResponse,
   TreeResponse,
@@ -59,8 +61,7 @@ const DEFAULT_FILTERS: SearchFilters = {
   sizeMax: "",
   modifiedFrom: "",
   modifiedTo: "",
-  metadataKey: "",
-  metadataValue: "",
+  metadataFilters: [{ key: "", value: "" }],
   hasAlpha: "",
   status: "",
   sort: "modified_time",
@@ -88,8 +89,6 @@ function buildSearchParams(filters: SearchFilters): URLSearchParams {
     size_max: filters.sizeMax,
     modified_from: filters.modifiedFrom,
     modified_to: filters.modifiedTo,
-    metadata_key: filters.metadataKey,
-    metadata_value: filters.metadataValue,
     has_alpha: filters.hasAlpha,
     status: filters.status,
     sort: filters.sort,
@@ -102,6 +101,13 @@ function buildSearchParams(filters: SearchFilters): URLSearchParams {
     if (value !== "") {
       params.set(key, String(value));
     }
+  });
+  filters.metadataFilters.forEach((metadataFilter) => {
+    if (!metadataFilter.key.trim()) {
+      return;
+    }
+    params.append("metadata_key", metadataFilter.key.trim());
+    params.append("metadata_value", metadataFilter.value.trim());
   });
 
   return params;
@@ -172,6 +178,7 @@ export default function App() {
   const [imageLoading, setImageLoading] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null);
   const [selectedImageIds, setSelectedImageIds] = useState<Set<number>>(new Set());
+  const [selectionAnchorId, setSelectionAnchorId] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState<ImageDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -193,6 +200,7 @@ export default function App() {
   const [exporting, setExporting] = useState(false);
   const [exportDir, setExportDir] = useState("");
   const [exportStructureMode, setExportStructureMode] = useState<ExportStructureMode>("preserve");
+  const [exportStorageBackend, setExportStorageBackend] = useState<ExportStorageBackend>("local");
   const [exportMessage, setExportMessage] = useState("");
 
   const activeTree = treeCache[selectedPath];
@@ -231,6 +239,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (config?.export_storage_backend) {
+      setExportStorageBackend(config.export_storage_backend);
+    }
+  }, [config?.export_storage_backend]);
+
+  useEffect(() => {
     if (canBrowse && viewMode === "admin" && !isAdmin) {
       setViewMode("browser");
       window.history.replaceState({}, "", "/");
@@ -264,6 +278,7 @@ export default function App() {
           const visibleIds = new Set(imageResponse.items.map((item) => item.id));
           return new Set([...current].filter((imageId) => visibleIds.has(imageId)));
         });
+        setSelectionAnchorId((current) => (imageResponse.items.some((item) => item.id === current) ? current : null));
         if (imageResponse.items.length && !imageResponse.items.some((item) => item.id === selectedImageId)) {
           setSelectedImageId(imageResponse.items[0].id);
         }
@@ -502,9 +517,26 @@ export default function App() {
   const selectedVisibleItems = visibleItems.filter((item) => selectedImageIds.has(item.id));
   const exportTargetItems = selectedVisibleItems.length ? selectedVisibleItems : visibleItems;
 
-  const handleToggleSelected = (imageId: number) => {
+  const selectRangeTo = (imageId: number, currentSelection: Set<number>) => {
+    const anchorId = selectionAnchorId ?? selectedImageId ?? imageId;
+    const anchorIndex = visibleItems.findIndex((item) => item.id === anchorId);
+    const targetIndex = visibleItems.findIndex((item) => item.id === imageId);
+    if (anchorIndex < 0 || targetIndex < 0) {
+      currentSelection.add(imageId);
+      return currentSelection;
+    }
+    const [startIndex, endIndex] =
+      anchorIndex < targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
+    visibleItems.slice(startIndex, endIndex + 1).forEach((item) => currentSelection.add(item.id));
+    return currentSelection;
+  };
+
+  const handleToggleSelected = (imageId: number, shiftKey = false) => {
     setSelectedImageIds((current) => {
       const next = new Set(current);
+      if (shiftKey) {
+        return selectRangeTo(imageId, next);
+      }
       if (next.has(imageId)) {
         next.delete(imageId);
       } else {
@@ -512,6 +544,18 @@ export default function App() {
       }
       return next;
     });
+    setSelectionAnchorId(imageId);
+  };
+
+  const handleImageSelect = (imageId: number, shiftKey = false) => {
+    setSelectedImageId(imageId);
+    setZoom(1);
+    setFitToScreen(true);
+    if (shiftKey) {
+      handleToggleSelected(imageId, true);
+      return;
+    }
+    setSelectionAnchorId(imageId);
   };
 
   const handleSelectAllVisible = () => {
@@ -520,10 +564,14 @@ export default function App() {
       visibleItems.forEach((item) => next.add(item.id));
       return next;
     });
+    if (visibleItems.length) {
+      setSelectionAnchorId(visibleItems[0].id);
+    }
   };
 
   const handleClearSelection = () => {
     setSelectedImageIds(new Set());
+    setSelectionAnchorId(null);
   };
 
   const writeLocalImageFile = async (
@@ -600,6 +648,7 @@ export default function App() {
         destination,
         buildSearchParams(filters),
         exportStructureMode,
+        exportStorageBackend,
         selectedIds.length ? selectedIds : null,
       );
       setExportMessage(
@@ -618,6 +667,7 @@ export default function App() {
     setSelectedPath("");
     setSelectedImageId(null);
     setSelectedImageIds(new Set());
+    setSelectionAnchorId(null);
     setSelectedImage(null);
     setImages(null);
     setFilters((current) => ({ ...DEFAULT_FILTERS, pageSize: current.pageSize }));
@@ -666,6 +716,7 @@ export default function App() {
       const visibleIds = new Set(imageResponse.items.map((item) => item.id));
       return new Set([...current].filter((imageId) => visibleIds.has(imageId)));
     });
+    setSelectionAnchorId((current) => (imageResponse.items.some((item) => item.id === current) ? current : null));
     if (selectedImageId) {
       const detail = await fetchImageDetail(selectedImageId);
       setSelectedImage(detail);
@@ -866,12 +917,24 @@ export default function App() {
                   <option value="preserve">원래 폴더 구조 유지</option>
                 </select>
               </label>
+              <label>
+                저장 백엔드
+                <select
+                  value={exportStorageBackend}
+                  onChange={(event) => setExportStorageBackend(event.target.value as ExportStorageBackend)}
+                >
+                  <option value="local">서버 로컬 폴더</option>
+                  <option value="object" disabled={!config.object_storage_configured}>
+                    MinIO/lakeFS 오브젝트 스토리지
+                  </option>
+                </select>
+              </label>
               <div className="export-actions">
                 <button className="secondary" disabled={exporting || !exportTargetItems.length} onClick={() => void handleExportLocal()}>
                   {exporting ? "저장 중" : "내 PC 폴더 선택 저장"}
                 </button>
                 <button className="secondary" disabled={exporting || !exportDir.trim()} onClick={() => void handleExportFiltered()}>
-                  서버에 저장
+                  {exportStorageBackend === "object" ? "MinIO/lakeFS에 저장" : "서버에 저장"}
                 </button>
               </div>
               {exportMessage ? <p className="success-inline">{exportMessage}</p> : null}
@@ -884,11 +947,7 @@ export default function App() {
               selectedImageIds={selectedImageIds}
               thumbnailSize={config.thumbnail_default_size}
               viewMode={imageViewMode}
-              onSelect={(imageId) => {
-                setSelectedImageId(imageId);
-                setZoom(1);
-                setFitToScreen(true);
-              }}
+              onSelect={handleImageSelect}
               onToggleSelected={handleToggleSelected}
             />
           </main>
