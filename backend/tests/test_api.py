@@ -78,6 +78,22 @@ def test_admin_can_set_signup_code_and_user_can_register_then_change_password(cl
     assert new_login.status_code == 200
 
 
+def test_register_accepts_korean_username_and_trimmed_signup_code(client) -> None:
+    login = client.post("/api/auth/login", json={"username": "admin", "password": "secret123"})
+    assert login.status_code == 200
+    code_response = client.patch("/api/admin/signup-code", json={"signup_code": "join-2026"})
+    assert code_response.status_code == 200
+
+    client.post("/api/auth/logout")
+    register = client.post(
+        "/api/auth/register",
+        json={"username": "홍길동", "password": "viewerpass1", "signup_code": " join-2026 "},
+    )
+
+    assert register.status_code == 200
+    assert register.json()["username"] == "홍길동"
+
+
 def test_admin_can_change_own_password(client) -> None:
     login = client.post("/api/auth/login", json={"username": "admin", "password": "secret123"})
     assert login.status_code == 200

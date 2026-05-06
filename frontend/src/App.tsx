@@ -570,34 +570,47 @@ export default function App() {
   const selectedVisibleItems = visibleItems.filter((item) => selectedImageIds.has(item.id));
   const exportTargetItems = selectedVisibleItems.length ? selectedVisibleItems : visibleItems;
 
-  const selectRangeTo = (imageId: number, currentSelection: Set<number>) => {
+  const updateRangeSelectionTo = (imageId: number, currentSelection: Set<number>, selected: boolean) => {
     const anchorId = selectionAnchorId ?? selectedImageId ?? imageId;
     const anchorIndex = visibleItems.findIndex((item) => item.id === anchorId);
     const targetIndex = visibleItems.findIndex((item) => item.id === imageId);
     if (anchorIndex < 0 || targetIndex < 0) {
-      currentSelection.add(imageId);
+      if (selected) {
+        currentSelection.add(imageId);
+      } else {
+        currentSelection.delete(imageId);
+      }
       return currentSelection;
     }
     const [startIndex, endIndex] =
       anchorIndex < targetIndex ? [anchorIndex, targetIndex] : [targetIndex, anchorIndex];
-    visibleItems.slice(startIndex, endIndex + 1).forEach((item) => currentSelection.add(item.id));
+    visibleItems.slice(startIndex, endIndex + 1).forEach((item) => {
+      if (selected) {
+        currentSelection.add(item.id);
+      } else {
+        currentSelection.delete(item.id);
+      }
+    });
     return currentSelection;
   };
 
   const handleToggleSelected = (imageId: number, shiftKey = false) => {
     setSelectedImageIds((current) => {
       const next = new Set(current);
+      const shouldSelect = !current.has(imageId);
       if (shiftKey) {
-        return selectRangeTo(imageId, next);
+        return updateRangeSelectionTo(imageId, next, shouldSelect);
       }
-      if (next.has(imageId)) {
+      if (!shouldSelect) {
         next.delete(imageId);
       } else {
         next.add(imageId);
       }
       return next;
     });
-    setSelectionAnchorId(imageId);
+    if (!shiftKey) {
+      setSelectionAnchorId(imageId);
+    }
   };
 
   const handleImageSelect = (imageId: number, shiftKey = false) => {

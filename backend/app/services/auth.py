@@ -46,8 +46,11 @@ class AuthService:
 
     def register_user(self, username: str, password: str, signup_code: str) -> AuthenticatedUser:
         username = username.strip()
+        signup_code = signup_code.strip()
         if not self.settings.auth_enabled:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Authentication is disabled.")
+        if not username:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username is required.")
         if self._is_admin_username(username):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This username is reserved.")
 
@@ -180,7 +183,7 @@ class AuthService:
         setting.updated_at = now
 
     def _is_admin_username(self, username: str) -> bool:
-        return hmac.compare_digest(username, self.settings.auth_username)
+        return hmac.compare_digest(username.encode("utf-8"), self.settings.auth_username.encode("utf-8"))
 
     def hash_password(self, password: str) -> str:
         return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")

@@ -15,11 +15,13 @@ export function AuthGate({ loading, error, onLogin, onRegister }: AuthGateProps)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const trimmedUsername = username.trim();
+    const trimmedSignupCode = signupCode.trim();
     if (mode === "register") {
-      await onRegister(username, password, signupCode);
+      await onRegister(trimmedUsername, password, trimmedSignupCode);
       return;
     }
-    await onLogin(username, password);
+    await onLogin(trimmedUsername, password);
   };
 
   return (
