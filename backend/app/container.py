@@ -56,7 +56,7 @@ class AppContainer:
             metadata_extractor=self.metadata_extractor,
             search_service=self.search_service,
         )
-        self.auth_service = AuthService(settings)
+        self.auth_service = AuthService(settings, self.session_factory)
         self.watch_service = WatchService(settings, self.index_service)
         self.periodic_scan_service = PeriodicScanService(settings, self.index_service)
 

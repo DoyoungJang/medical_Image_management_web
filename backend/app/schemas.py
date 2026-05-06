@@ -195,7 +195,28 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=128, pattern=r"^[A-Za-z0-9_.-]+$")
+    password: str = Field(min_length=8, max_length=128)
+    signup_code: str = Field(min_length=1, max_length=128)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class SessionResponse(BaseModel):
     authenticated: bool
     username: str | None = None
     is_admin: bool = False
+
+
+class AdminSignupCodeResponse(BaseModel):
+    signup_code: str
+    source: str
+    changed: bool = False
+
+
+class AdminSignupCodeUpdateRequest(BaseModel):
+    signup_code: str = Field(min_length=4, max_length=128)

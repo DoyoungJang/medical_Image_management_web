@@ -17,6 +17,12 @@ export interface SessionResponse {
   is_admin?: boolean;
 }
 
+export interface AdminSignupCodeResponse {
+  signup_code: string;
+  source: "environment" | "database" | string;
+  changed: boolean;
+}
+
 export interface BreadcrumbItem {
   name: string;
   path: string;

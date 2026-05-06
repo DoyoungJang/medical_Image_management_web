@@ -95,14 +95,15 @@ cd ..
 $env:PNG_ROOT_DIR="C:\data\company-png"
 $env:THUMBNAIL_CACHE_DIR="C:\png-browser-cache"
 $env:EXPORT_ROOT_DIR="C:\png-browser-exports"
-$env:EXPORT_STORAGE_BACKEND="local"
-$env:OBJECT_STORAGE_ENDPOINT_URL=""
-$env:OBJECT_STORAGE_ACCESS_KEY_ID=""
-$env:OBJECT_STORAGE_SECRET_ACCESS_KEY=""
+$env:EXPORT_STORAGE_BACKEND="object"
+$env:OBJECT_STORAGE_ENDPOINT_URL="http://localhost:9000"
+$env:OBJECT_STORAGE_ACCESS_KEY_ID="minioadmin"
+$env:OBJECT_STORAGE_SECRET_ACCESS_KEY="minioadmin"
 $env:OBJECT_STORAGE_REGION="us-east-1"
-$env:OBJECT_STORAGE_BUCKET=""
-$env:OBJECT_STORAGE_PREFIX=""
+$env:OBJECT_STORAGE_BUCKET="medical-images"
+$env:OBJECT_STORAGE_PREFIX="exports"
 $env:OBJECT_STORAGE_FORCE_PATH_STYLE="true"
+$env:OBJECT_STORAGE_ALLOW_REMOTE_ENDPOINT="false"
 $env:DATABASE_URL="sqlite:///./png_browser.db"
 $env:SQLITE_BUSY_TIMEOUT_SECONDS="30"
 $env:SQLITE_JOURNAL_MODE="WAL"
@@ -223,14 +224,15 @@ cd ..
 export PNG_ROOT_DIR=/data/company-png
 export THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails
 export EXPORT_ROOT_DIR=/var/lib/png-browser/exports
-export EXPORT_STORAGE_BACKEND=local
-export OBJECT_STORAGE_ENDPOINT_URL=
-export OBJECT_STORAGE_ACCESS_KEY_ID=
-export OBJECT_STORAGE_SECRET_ACCESS_KEY=
+export EXPORT_STORAGE_BACKEND=object
+export OBJECT_STORAGE_ENDPOINT_URL=http://localhost:9000
+export OBJECT_STORAGE_ACCESS_KEY_ID=minioadmin
+export OBJECT_STORAGE_SECRET_ACCESS_KEY=minioadmin
 export OBJECT_STORAGE_REGION=us-east-1
-export OBJECT_STORAGE_BUCKET=
-export OBJECT_STORAGE_PREFIX=
+export OBJECT_STORAGE_BUCKET=medical-images
+export OBJECT_STORAGE_PREFIX=exports
 export OBJECT_STORAGE_FORCE_PATH_STYLE=true
+export OBJECT_STORAGE_ALLOW_REMOTE_ENDPOINT=false
 export DATABASE_URL=sqlite:////var/lib/png-browser/app.db
 export SQLITE_BUSY_TIMEOUT_SECONDS=30
 export SQLITE_JOURNAL_MODE=WAL
@@ -305,14 +307,21 @@ APP_PORT=8080
 PNG_ROOT_DIR=/data/company-png
 THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails
 EXPORT_ROOT_DIR=/var/lib/png-browser/exports
-EXPORT_STORAGE_BACKEND=local
-OBJECT_STORAGE_ENDPOINT_URL=
-OBJECT_STORAGE_ACCESS_KEY_ID=
-OBJECT_STORAGE_SECRET_ACCESS_KEY=
+EXPORT_STORAGE_BACKEND=object
+OBJECT_STORAGE_ENDPOINT_URL=http://minio:9000
+OBJECT_STORAGE_ACCESS_KEY_ID=minioadmin
+OBJECT_STORAGE_SECRET_ACCESS_KEY=minioadmin
 OBJECT_STORAGE_REGION=us-east-1
-OBJECT_STORAGE_BUCKET=
-OBJECT_STORAGE_PREFIX=
+OBJECT_STORAGE_BUCKET=medical-images
+OBJECT_STORAGE_PREFIX=exports
 OBJECT_STORAGE_FORCE_PATH_STYLE=true
+OBJECT_STORAGE_ALLOW_REMOTE_ENDPOINT=false
+MINIO_ROOT_USER=minioadmin
+MINIO_ROOT_PASSWORD=minioadmin
+MINIO_BUCKET=medical-images
+MINIO_CONSOLE_PORT=9001
+LAKEFS_PORT=8001
+LAKEFS_AUTH_ENCRYPT_SECRET_KEY=local-lakefs-change-me
 DATABASE_URL=sqlite:////var/lib/png-browser/app.db
 SQLITE_BUSY_TIMEOUT_SECONDS=30
 SQLITE_JOURNAL_MODE=WAL
@@ -332,6 +341,39 @@ CORS_ORIGINS=http://<SERVER_IP>:8080
 ```
 
 ### 3.3 서비스 시작
+
+로컬 서버에서 앱, MinIO, lakeFS를 한 번에 설치/구동하려면 아래 스크립트를 사용합니다. 스크립트는 루트 `.env`를 로컬 Docker용으로 생성하고 기존 `.env`가 있으면 백업한 뒤 `docker compose up -d --build`를 실행합니다.
+
+Windows PowerShell:
+
+```powershell
+.\scripts\start-local-stack.ps1
+```
+
+Ubuntu/macOS:
+
+```bash
+bash scripts/start-local-stack.sh
+```
+
+기본 접속 주소:
+
+```text
+앱: http://localhost:8080
+MinIO API: http://localhost:9000
+MinIO Console: http://localhost:9001
+lakeFS UI: http://localhost:8001
+```
+
+기본 계정:
+
+```text
+앱: admin / admin
+MinIO: minioadmin / minioadmin
+lakeFS: AKIAIOSFODNN7EXAMPLE / lakefs-local-secret
+```
+
+직접 Compose를 실행할 때는 아래 명령을 사용합니다.
 
 ```bash
 docker compose build
@@ -368,9 +410,9 @@ AUTH_PASSWORD_HASH=
 
 운영 서버에서는 `admin / admin`을 그대로 사용하지 말고, `AUTH_PASSWORD`를 더 강한 비밀번호로 바꾸거나 `AUTH_PASSWORD_HASH`를 사용하세요. `AUTH_PASSWORD_HASH`를 사용할 때는 평문 비밀번호 대신 bcrypt 해시를 넣습니다. 관리자 페이지의 수동 재스캔은 `AUTH_USERNAME`으로 설정된 관리자 계정만 실행할 수 있습니다.
 
-관리자 페이지의 `이미지 루트 경로`에서는 현재 탐색 루트를 변경할 수 있습니다. `서버 저장 경로`에서는 필터 결과를 서버에 저장할 때 사용하는 루트도 변경할 수 있습니다. 변경한 경로는 환경변수 파일을 직접 수정하지 않고 SQLite DB의 런타임 설정으로 저장됩니다. 서버 재시작 후에도 관리자 설정이 우선 적용되며, 이미지 루트가 새 경로로 변경되면 기존 목록은 누락 처리되고 백그라운드 재스캔이 요청됩니다.
+관리자 페이지의 `이미지 루트 경로`에서는 현재 탐색 루트를 변경할 수 있습니다. `서버 저장 경로`에서는 필터 결과를 서버에 저장할 때 사용하는 루트도 변경할 수 있습니다. 변경한 경로는 환경변수 파일을 직접 수정하지 않고 SQLite DB의 런타임 설정으로 저장됩니다. 서버 재시작 후에도 관리자 설정이 우선 적용되며, 이미지 루트가 새 경로로 변경되면 기존 이미지 목록 레코드는 DB에서 삭제되고 백그라운드 재스캔이 요청됩니다.
 
-MinIO 또는 lakeFS S3 Gateway로 저장 결과를 관리하려면 `OBJECT_STORAGE_*` 값을 설정하고 탐색 화면의 저장 백엔드에서 `MinIO/lakeFS 오브젝트 스토리지`를 선택합니다. 기본값은 기존 동작과 같은 `EXPORT_STORAGE_BACKEND=local`입니다. lakeFS를 사용할 때는 lakeFS의 S3 호환 엔드포인트를 `OBJECT_STORAGE_ENDPOINT_URL`에 넣고, repository/branch 또는 운영 규칙에 맞는 경로를 `OBJECT_STORAGE_BUCKET`과 `OBJECT_STORAGE_PREFIX`로 나눠 지정하세요.
+MinIO/lakeFS는 로컬 서버 또는 사설망 endpoint만 사용하도록 기본 설정되어 있습니다. Docker Compose는 로컬 MinIO(`http://localhost:9000`, 콘솔 `http://localhost:9001`)와 `medical-images` 버킷을 함께 띄우며, 백엔드는 Compose 내부 주소인 `http://minio:9000`으로 업로드합니다. lakeFS도 같은 Compose 스택에서 함께 실행되며, local database/local blockstore와 초기 admin access key를 환경변수로 자동 설정합니다. lakeFS S3 Gateway를 사용할 때는 `OBJECT_STORAGE_ENDPOINT_URL=http://lakefs:8000`, `OBJECT_STORAGE_BUCKET=<repository>`, `OBJECT_STORAGE_PREFIX=<branch>/exports`처럼 로컬 Compose 네트워크 주소와 repository/branch 경로를 지정하세요. 공개 인터넷 endpoint를 쓰려면 명시적으로 `OBJECT_STORAGE_ALLOW_REMOTE_ENDPOINT=true`를 설정해야 합니다.
 
 ### Windows PowerShell
 

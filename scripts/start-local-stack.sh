@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+HOST_PNG_ROOT_DIR="${HOST_PNG_ROOT_DIR:-${HOME}/medical-image-data/company-png}"
+APP_PORT="${APP_PORT:-8080}"
+MINIO_CONSOLE_PORT="${MINIO_CONSOLE_PORT:-9001}"
+LAKEFS_PORT="${LAKEFS_PORT:-8001}"
+MINIO_ROOT_USER="${MINIO_ROOT_USER:-minioadmin}"
+MINIO_ROOT_PASSWORD="${MINIO_ROOT_PASSWORD:-minioadmin}"
+MINIO_BUCKET="${MINIO_BUCKET:-medical-images}"
+LAKEFS_INSTALLATION_ACCESS_KEY_ID="${LAKEFS_INSTALLATION_ACCESS_KEY_ID:-AKIAIOSFODNN7EXAMPLE}"
+LAKEFS_INSTALLATION_SECRET_ACCESS_KEY="${LAKEFS_INSTALLATION_SECRET_ACCESS_KEY:-lakefs-local-secret}"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker CLI was not found. Install Docker Engine or Docker Desktop, start it, then run this script again." >&2
+  exit 1
+fi
+
+mkdir -p "${HOST_PNG_ROOT_DIR}"
+ENV_PATH="${REPO_ROOT}/.env"
+
+if [ -f "${ENV_PATH}" ]; then
+  BACKUP_PATH="${ENV_PATH}.backup-$(date +%Y%m%d-%H%M%S)"
+  cp "${ENV_PATH}" "${BACKUP_PATH}"
+  echo "Existing .env backed up to ${BACKUP_PATH}"
+fi
+
+cat > "${ENV_PATH}" <<EOF
+APP_PORT=${APP_PORT}
+HOST_PNG_ROOT_DIR=${HOST_PNG_ROOT_DIR}
+PNG_ROOT_DIR=/data/company-png
+THUMBNAIL_CACHE_DIR=/var/cache/png-browser-thumbnails
+EXPORT_ROOT_DIR=/var/lib/png-browser/exports
+EXPORT_STORAGE_BACKEND=object
+OBJECT_STORAGE_ENDPOINT_URL=http://minio:9000
+OBJECT_STORAGE_ACCESS_KEY_ID=${MINIO_ROOT_USER}
+OBJECT_STORAGE_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+OBJECT_STORAGE_REGION=us-east-1
+OBJECT_STORAGE_BUCKET=${MINIO_BUCKET}
+OBJECT_STORAGE_PREFIX=exports
+OBJECT_STORAGE_FORCE_PATH_STYLE=true
+OBJECT_STORAGE_ALLOW_REMOTE_ENDPOINT=false
+MINIO_ROOT_USER=${MINIO_ROOT_USER}
+MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+MINIO_BUCKET=${MINIO_BUCKET}
+MINIO_CONSOLE_PORT=${MINIO_CONSOLE_PORT}
+LAKEFS_PORT=${LAKEFS_PORT}
+LAKEFS_AUTH_ENCRYPT_SECRET_KEY=local-lakefs-change-me
+LAKEFS_BLOCKSTORE_SIGNING_SECRET_KEY=local-lakefs-signing-change-me
+LAKEFS_INSTALLATION_USER_NAME=admin
+LAKEFS_INSTALLATION_ACCESS_KEY_ID=${LAKEFS_INSTALLATION_ACCESS_KEY_ID}
+LAKEFS_INSTALLATION_SECRET_ACCESS_KEY=${LAKEFS_INSTALLATION_SECRET_ACCESS_KEY}
+DATABASE_URL=sqlite:////var/lib/png-browser/app.db
+SQLITE_BUSY_TIMEOUT_SECONDS=30
+SQLITE_JOURNAL_MODE=WAL
+SQLITE_SYNCHRONOUS=NORMAL
+MAX_EXPORT_ITEMS=5000
+AUTO_SCAN_ON_STARTUP=true
+PERIODIC_SCAN_INTERVAL_SECONDS=300
+ALLOW_SYMLINKS=false
+PUBLIC_SHOW_ABSOLUTE_PATH=false
+ENABLE_WATCHDOG=false
+USE_FTS5=true
+SUPPORTED_IMAGE_EXTENSIONS=.png,.jpg,.jpeg,.jpe,.jfif,.bmp,.gif,.tif,.tiff,.webp,.ico,.jp2,.j2k,.tga
+AUTH_ENABLED=true
+AUTH_USERNAME=admin
+AUTH_PASSWORD=admin
+AUTH_PASSWORD_HASH=
+AUTH_SECRET_KEY=change-this-secret-for-local-docker
+CORS_ORIGINS=http://localhost:5173,http://localhost:${APP_PORT},http://127.0.0.1:${APP_PORT}
+EOF
+
+(cd "${REPO_ROOT}" && docker compose up -d --build)
+
+cat <<EOF
+
+Local stack is starting.
+App:           http://localhost:${APP_PORT}
+MinIO API:     http://localhost:9000
+MinIO Console: http://localhost:${MINIO_CONSOLE_PORT}
+lakeFS UI:     http://localhost:${LAKEFS_PORT}
+
+App login:     admin / admin
+MinIO login:   ${MINIO_ROOT_USER} / ${MINIO_ROOT_PASSWORD}
+lakeFS login:  ${LAKEFS_INSTALLATION_ACCESS_KEY_ID} / ${LAKEFS_INSTALLATION_SECRET_ACCESS_KEY}
+EOF

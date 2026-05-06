@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from app.core.config import Settings
@@ -94,15 +94,13 @@ class IndexService:
                         source_path = self.file_system_service.resolve_relative_path(image.relative_path, strict=True)
                         stat_result = source_path.stat()
                     except (FileNotFoundError, OSError):
-                        image.missing_at = finished_at
-                        image.status = "missing"
-                        image.indexed_at = finished_at
+                        folder_path = image.directory
+                        session.delete(image)
                         result.missing_marked = 1
                         session.flush()
-                        self.search_service.rebuild_search_indexes(session, indexed_at=finished_at, folder_paths={image.directory})
+                        self.search_service.rebuild_search_indexes(session, indexed_at=finished_at, folder_paths={folder_path})
                         session.commit()
-                        session.refresh(image)
-                        return image
+                        return None
 
                     content_hash = self._hash_file(source_path)
                     extracted = self.metadata_extractor.extract(
@@ -199,11 +197,9 @@ class IndexService:
 
                     finished_at = datetime.now(tz=timezone.utc)
                     for relative_path, image in existing_images.items():
-                        if relative_path in seen_paths or image.missing_at is not None:
+                        if relative_path in seen_paths:
                             continue
-                        image.missing_at = finished_at
-                        image.status = "missing"
-                        image.indexed_at = finished_at
+                        session.delete(image)
                         result.missing_marked += 1
 
                     session.flush()
@@ -297,11 +293,7 @@ class IndexService:
     def mark_all_active_missing(self) -> int:
         indexed_at = datetime.now(tz=timezone.utc)
         with self.session_factory() as session:
-            result = session.execute(
-                update(Image)
-                .where(Image.missing_at.is_(None))
-                .values(missing_at=indexed_at, status="missing", indexed_at=indexed_at)
-            )
+            result = session.execute(delete(Image))
             self.search_service.rebuild_search_indexes(session, indexed_at=indexed_at, folder_paths={""})
             session.commit()
             return int(result.rowcount or 0)

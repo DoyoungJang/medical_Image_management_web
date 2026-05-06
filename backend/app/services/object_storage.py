@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import mimetypes
+from ipaddress import ip_address
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from app.core.config import Settings
 
@@ -55,6 +57,33 @@ class ObjectStorageService:
                 "Object storage export is not configured. Set OBJECT_STORAGE_ENDPOINT_URL, "
                 "OBJECT_STORAGE_ACCESS_KEY_ID, OBJECT_STORAGE_SECRET_ACCESS_KEY, and OBJECT_STORAGE_BUCKET."
             )
+        self._ensure_local_endpoint_allowed()
+
+    def _ensure_local_endpoint_allowed(self) -> None:
+        if self.settings.object_storage_allow_remote_endpoint:
+            return
+        parsed = urlparse(self.settings.object_storage_endpoint_url)
+        hostname = parsed.hostname
+        if hostname and self._is_local_or_private_host(hostname):
+            return
+        raise ObjectStorageError(
+            "Only local or private-network MinIO/lakeFS endpoints are allowed. "
+            "Set OBJECT_STORAGE_ALLOW_REMOTE_ENDPOINT=true only if you intentionally need a remote endpoint."
+        )
+
+    def _is_local_or_private_host(self, hostname: str) -> bool:
+        normalized = hostname.strip().lower().rstrip(".")
+        if normalized in {"localhost", "host.docker.internal"}:
+            return True
+        if normalized.endswith(".localhost") or normalized.endswith(".local"):
+            return True
+        if "." not in normalized:
+            return True
+        try:
+            address = ip_address(normalized)
+        except ValueError:
+            return False
+        return address.is_loopback or address.is_private or address.is_link_local
 
     def _client_instance(self) -> S3Client:
         if self._client is not None:

@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     auth_cookie_name: str = "png_browser_session"
     auth_secret_key: str = "change-me-in-production"
     auth_session_ttl_hours: int = 12
+    signup_code: str = ""
 
     default_page_size: int = 24
     max_page_size: int = 1000
@@ -72,6 +73,7 @@ class Settings(BaseSettings):
     object_storage_bucket: str = ""
     object_storage_prefix: str = ""
     object_storage_force_path_style: bool = True
+    object_storage_allow_remote_endpoint: bool = False
 
     admin_rescan_cooldown_seconds: int = 10
     max_metadata_text_length: int = 200_000

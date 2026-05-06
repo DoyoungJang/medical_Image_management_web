@@ -16,6 +16,9 @@ from app.schemas import (
     AdminExportRootUpdateRequest,
     AdminImageRootResponse,
     AdminImageRootUpdateRequest,
+    AdminSignupCodeResponse,
+    AdminSignupCodeUpdateRequest,
+    ChangePasswordRequest,
     ExportFilteredImagesRequest,
     ExportFilteredImagesResponse,
     FolderRescanRequest,
@@ -28,6 +31,7 @@ from app.schemas import (
     MetadataFacetsResponse,
     MetadataKeysResponse,
     PublicConfigResponse,
+    RegisterRequest,
     SessionResponse,
     TreeResponse,
     TrackedMetadataKeyRequest,
@@ -132,6 +136,42 @@ def login(
     container: AppContainer = Depends(get_container),
 ) -> SessionResponse:
     user = container.auth_service.authenticate_credentials(payload.username, payload.password)
+    container.auth_service.set_session_cookie(response, user.username)
+    return SessionResponse(
+        authenticated=True,
+        username=user.username,
+        is_admin=container.auth_service.is_admin_user(user),
+    )
+
+
+@auth_router.post("/register", response_model=SessionResponse)
+def register(
+    payload: RegisterRequest,
+    response: Response,
+    container: AppContainer = Depends(get_container),
+) -> SessionResponse:
+    user = container.auth_service.register_user(payload.username, payload.password, payload.signup_code)
+    container.auth_service.set_session_cookie(response, user.username)
+    return SessionResponse(
+        authenticated=True,
+        username=user.username,
+        is_admin=container.auth_service.is_admin_user(user),
+    )
+
+
+@auth_router.post("/change-password", response_model=SessionResponse)
+def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    response: Response,
+    container: AppContainer = Depends(get_container),
+) -> SessionResponse:
+    current_user = container.auth_service.require_authenticated_user(request)
+    user = container.auth_service.change_password(
+        current_user.username,
+        payload.current_password,
+        payload.new_password,
+    )
     container.auth_service.set_session_cookie(response, user.username)
     return SessionResponse(
         authenticated=True,
@@ -484,6 +524,21 @@ def update_export_root(
         return container.update_export_root(payload.root_dir)
     except (FileNotFoundError, NotADirectoryError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@admin_router.get("/signup-code", response_model=AdminSignupCodeResponse, dependencies=[Depends(require_admin)])
+def get_signup_code(container: AppContainer = Depends(get_container)) -> AdminSignupCodeResponse:
+    signup_code, source = container.auth_service.get_signup_code_config()
+    return AdminSignupCodeResponse(signup_code=signup_code, source=source)
+
+
+@admin_router.patch("/signup-code", response_model=AdminSignupCodeResponse, dependencies=[Depends(require_admin)])
+def update_signup_code(
+    payload: AdminSignupCodeUpdateRequest,
+    container: AppContainer = Depends(get_container),
+) -> AdminSignupCodeResponse:
+    signup_code, source = container.auth_service.set_signup_code(payload.signup_code)
+    return AdminSignupCodeResponse(signup_code=signup_code, source=source, changed=True)
 
 
 @admin_router.post(

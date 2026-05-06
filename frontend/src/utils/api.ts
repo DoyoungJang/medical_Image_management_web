@@ -1,6 +1,7 @@
 import type {
   AdminImageRootResponse,
   AdminExportRootResponse,
+  AdminSignupCodeResponse,
   ExportFilteredImagesResponse,
   ExportStorageBackend,
   ExportStructureMode,
@@ -63,6 +64,20 @@ export async function login(username: string, password: string): Promise<Session
   return request<SessionResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
+  });
+}
+
+export async function register(username: string, password: string, signupCode: string): Promise<SessionResponse> {
+  return request<SessionResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ username, password, signup_code: signupCode }),
+  });
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<SessionResponse> {
+  return request<SessionResponse>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
 }
 
@@ -135,6 +150,17 @@ export async function updateAdminExportRoot(rootDir: string): Promise<AdminExpor
   return request<AdminExportRootResponse>("/admin/export-root", {
     method: "PATCH",
     body: JSON.stringify({ root_dir: rootDir }),
+  });
+}
+
+export async function fetchAdminSignupCode(): Promise<AdminSignupCodeResponse> {
+  return request<AdminSignupCodeResponse>("/admin/signup-code");
+}
+
+export async function updateAdminSignupCode(signupCode: string): Promise<AdminSignupCodeResponse> {
+  return request<AdminSignupCodeResponse>("/admin/signup-code", {
+    method: "PATCH",
+    body: JSON.stringify({ signup_code: signupCode }),
   });
 }
 

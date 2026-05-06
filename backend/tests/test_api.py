@@ -4,10 +4,12 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
 
+import pytest
 from PIL import Image
 from sqlalchemy import select
 
 from app.models import Image as ImageModel
+from app.services.object_storage import ObjectStorageError
 
 
 def test_root_endpoint_explains_backend_server(client) -> None:
@@ -35,6 +37,63 @@ def test_authentication_and_admin_protection(client) -> None:
 
     authorized = client.get("/api/admin/index-status")
     assert authorized.status_code == 200
+
+
+def test_admin_can_set_signup_code_and_user_can_register_then_change_password(client) -> None:
+    login = client.post("/api/auth/login", json={"username": "admin", "password": "secret123"})
+    assert login.status_code == 200
+
+    code_response = client.patch("/api/admin/signup-code", json={"signup_code": "join-2026"})
+    assert code_response.status_code == 200
+    assert code_response.json()["signup_code"] == "join-2026"
+
+    client.post("/api/auth/logout")
+    bad_register = client.post(
+        "/api/auth/register",
+        json={"username": "viewer", "password": "viewerpass1", "signup_code": "wrong"},
+    )
+    assert bad_register.status_code == 403
+
+    register = client.post(
+        "/api/auth/register",
+        json={"username": "viewer", "password": "viewerpass1", "signup_code": "join-2026"},
+    )
+    assert register.status_code == 200
+    assert register.json()["username"] == "viewer"
+    assert register.json()["is_admin"] is False
+
+    rescan_response = client.post("/api/admin/rescan")
+    assert rescan_response.status_code == 403
+
+    change_response = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "viewerpass1", "new_password": "viewerpass2"},
+    )
+    assert change_response.status_code == 200
+
+    client.post("/api/auth/logout")
+    old_login = client.post("/api/auth/login", json={"username": "viewer", "password": "viewerpass1"})
+    new_login = client.post("/api/auth/login", json={"username": "viewer", "password": "viewerpass2"})
+    assert old_login.status_code == 401
+    assert new_login.status_code == 200
+
+
+def test_admin_can_change_own_password(client) -> None:
+    login = client.post("/api/auth/login", json={"username": "admin", "password": "secret123"})
+    assert login.status_code == 200
+
+    change_response = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "secret123", "new_password": "newsecret123"},
+    )
+    assert change_response.status_code == 200
+    assert change_response.json()["is_admin"] is True
+
+    client.post("/api/auth/logout")
+    old_login = client.post("/api/auth/login", json={"username": "admin", "password": "secret123"})
+    new_login = client.post("/api/auth/login", json={"username": "admin", "password": "newsecret123"})
+    assert old_login.status_code == 401
+    assert new_login.status_code == 200
 
 
 def test_manual_rescan_requires_admin_account(client, monkeypatch) -> None:
@@ -90,7 +149,7 @@ def test_folder_rescan_reports_conflict_when_any_scan_is_running(authenticated_c
     assert "스캔" in response.json()["detail"]
 
 
-def test_folder_scan_marks_missing_only_inside_target_folder(scanned_client, test_paths: dict[str, Path]) -> None:
+def test_folder_scan_removes_deleted_files_only_inside_target_folder(scanned_client, test_paths: dict[str, Path]) -> None:
     container = scanned_client.app.state.container
     (test_paths["png_root"] / "nested" / "deeper" / "deep.png").unlink()
     (test_paths["png_root"] / "plain.png").unlink()
@@ -308,6 +367,19 @@ def test_regular_user_can_force_rescan_single_image(scanned_client) -> None:
     assert response.json()["status"] == "refreshed"
 
 
+def test_image_rescan_removes_deleted_file_from_database(scanned_client, test_paths: dict[str, Path]) -> None:
+    list_response = scanned_client.get("/api/images", params={"q": "plain"})
+    image_id = next(item["id"] for item in list_response.json()["items"] if item["filename"] == "plain.png")
+    (test_paths["png_root"] / "plain.png").unlink()
+
+    response = scanned_client.post(f"/api/images/{image_id}/rescan")
+    list_after_delete = scanned_client.get("/api/images", params={"q": "plain"})
+
+    assert response.status_code == 404
+    assert list_after_delete.status_code == 200
+    assert not list_after_delete.json()["items"]
+
+
 def test_image_rescan_reports_conflict_when_scan_is_running(scanned_client, monkeypatch) -> None:
     container = scanned_client.app.state.container
     monkeypatch.setattr(container.index_service, "rescan_image_now", lambda image_id: None)
@@ -418,6 +490,18 @@ def test_export_filtered_images_can_upload_to_object_storage(scanned_client, mon
     assert payload["copied"] >= 1
     assert payload["destination_dir"] == "s3://medical-images/lakefs/main/review-set"
     assert any(object_key.endswith("review-set/photo.jpg") for _source_path, object_key, _filename in uploaded)
+
+
+def test_object_storage_rejects_remote_endpoint_by_default(scanned_client, tmp_path: Path) -> None:
+    container = scanned_client.app.state.container
+    container.settings.object_storage_endpoint_url = "https://s3.amazonaws.com"
+    container.settings.object_storage_access_key_id = "access"
+    container.settings.object_storage_secret_access_key = "secret"
+    container.settings.object_storage_bucket = "medical-images"
+    container.settings.object_storage_allow_remote_endpoint = False
+
+    with pytest.raises(ObjectStorageError):
+        container.object_storage_service.upload_file(tmp_path / "image.png", "review-set/image.png", filename="image.png")
 
 
 def test_export_filtered_images_rejects_path_traversal(scanned_client) -> None:

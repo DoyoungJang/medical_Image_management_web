@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 
-import type { AdminExportRootResponse, AdminImageRootResponse, FacetCount, IndexStatusResponse, PublicConfig } from "../types/api";
+import type {
+  AdminExportRootResponse,
+  AdminImageRootResponse,
+  AdminSignupCodeResponse,
+  FacetCount,
+  IndexStatusResponse,
+  PublicConfig,
+} from "../types/api";
 import { booleanLabel, statusLabel } from "../utils/labels";
 import { formatDate } from "../utils/format";
 
@@ -19,11 +26,14 @@ interface AdminPageProps {
   trackedMetadataKeys: string[];
   imageRootConfig: AdminImageRootResponse | null;
   exportRootConfig: AdminExportRootResponse | null;
+  signupCodeConfig: AdminSignupCodeResponse | null;
   rootUpdating: boolean;
   exportRootUpdating: boolean;
+  signupCodeUpdating: boolean;
   onRescan: () => Promise<void>;
   onUpdateImageRoot: (rootDir: string) => Promise<AdminImageRootResponse>;
   onUpdateExportRoot: (rootDir: string) => Promise<AdminExportRootResponse>;
+  onUpdateSignupCode: (signupCode: string) => Promise<AdminSignupCodeResponse>;
   onAddTrackedMetadataKey: (key: string) => Promise<void>;
   onRemoveTrackedMetadataKey: (key: string) => Promise<void>;
 }
@@ -70,11 +80,14 @@ export function AdminPage({
   trackedMetadataKeys,
   imageRootConfig,
   exportRootConfig,
+  signupCodeConfig,
   rootUpdating,
   exportRootUpdating,
+  signupCodeUpdating,
   onRescan,
   onUpdateImageRoot,
   onUpdateExportRoot,
+  onUpdateSignupCode,
   onAddTrackedMetadataKey,
   onRemoveTrackedMetadataKey,
 }: AdminPageProps) {
@@ -87,10 +100,14 @@ export function AdminPage({
   const [exportRootInput, setExportRootInput] = useState("");
   const [exportRootMessage, setExportRootMessage] = useState("");
   const [exportRootError, setExportRootError] = useState("");
+  const [signupCodeInput, setSignupCodeInput] = useState("");
+  const [signupCodeMessage, setSignupCodeMessage] = useState("");
+  const [signupCodeError, setSignupCodeError] = useState("");
   const lastStartedAt = indexStatus?.last_started_at ? formatDate(indexStatus.last_started_at) : "-";
   const lastFinishedAt = indexStatus?.last_finished_at ? formatDate(indexStatus.last_finished_at) : "-";
   const rootSourceLabel = imageRootConfig?.source === "database" ? "관리자 설정" : "환경 변수";
   const exportRootSourceLabel = exportRootConfig?.source === "database" ? "관리자 설정" : "환경 변수";
+  const signupCodeSourceLabel = signupCodeConfig?.source === "database" ? "관리자 설정" : "환경 변수";
   const rescanButtonLabel = !canRescan
     ? "관리자 권한 필요"
     : rescanning
@@ -111,6 +128,12 @@ export function AdminPage({
     }
   }, [exportRootConfig?.root_dir]);
 
+  useEffect(() => {
+    if (signupCodeConfig?.signup_code !== undefined) {
+      setSignupCodeInput(signupCodeConfig.signup_code);
+    }
+  }, [signupCodeConfig?.signup_code]);
+
   return (
     <main className="admin-page">
       <div className="page-title-row">
@@ -128,7 +151,7 @@ export function AdminPage({
       <section className="stat-grid">
         <StatCard label="스캔 진행" value={indexStatus?.scanning ? "진행 중" : "대기"} />
         <StatCard label="활성 이미지" value={indexStatus?.active_images ?? 0} />
-        <StatCard label="누락 레코드" value={indexStatus?.missing_images ?? 0} />
+        <StatCard label="기존 누락 레코드" value={indexStatus?.missing_images ?? 0} />
         <StatCard label="전체 레코드" value={indexStatus?.total_images ?? 0} />
       </section>
 
@@ -230,6 +253,61 @@ export function AdminPage({
             <strong>{config.max_page_size}</strong>
           </div>
         </div>
+      </section>
+
+      <section className="admin-section">
+        <div className="section-header">
+          <div>
+            <h3>가입 코드</h3>
+            <p className="muted">회원가입 화면에서 이 코드를 입력한 사용자만 새 계정을 만들 수 있습니다.</p>
+          </div>
+        </div>
+        <div className="info-grid">
+          <div>
+            <span>현재 가입 코드</span>
+            <strong>{signupCodeConfig?.signup_code || "설정되지 않음"}</strong>
+          </div>
+          <div>
+            <span>설정 출처</span>
+            <strong>{signupCodeConfig ? signupCodeSourceLabel : "-"}</strong>
+          </div>
+          <div>
+            <span>가입 조건</span>
+            <strong>{signupCodeConfig?.signup_code ? "코드 필요" : "가입 불가"}</strong>
+          </div>
+        </div>
+        <form
+          className="root-path-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const nextCode = signupCodeInput.trim();
+            if (!nextCode) {
+              return;
+            }
+            setSignupCodeMessage("");
+            setSignupCodeError("");
+            try {
+              await onUpdateSignupCode(nextCode);
+              setSignupCodeMessage("가입 코드를 변경했습니다.");
+            } catch (error) {
+              setSignupCodeError(error instanceof Error ? error.message : "가입 코드를 변경하지 못했습니다.");
+            }
+          }}
+        >
+          <label>
+            새 가입 코드
+            <input
+              value={signupCodeInput}
+              disabled={!canRescan || signupCodeUpdating}
+              onChange={(event) => setSignupCodeInput(event.target.value)}
+            />
+          </label>
+          <button type="submit" disabled={!canRescan || signupCodeUpdating || signupCodeInput.trim().length < 4}>
+            {signupCodeUpdating ? "변경 중" : "가입 코드 변경"}
+          </button>
+        </form>
+        {signupCodeMessage ? <p className="success-inline">{signupCodeMessage}</p> : null}
+        {signupCodeError ? <div className="error-box">{signupCodeError}</div> : null}
       </section>
 
       <section className="admin-section">

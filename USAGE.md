@@ -93,7 +93,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 - `손상됨`
 - `읽기 불가`
 - `지원 안 함`
-- `누락됨`
+- 삭제된 원본 파일은 다음 재스캔 때 DB 목록에서 제거됩니다.
 
 검색 결과 위쪽의 보기 버튼으로 목록 표시 방식을 바꿀 수 있습니다.
 
@@ -154,7 +154,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 서버에 저장하려면 `서버 저장 폴더명`을 입력한 뒤 저장 백엔드를 고르고 저장 버튼을 누릅니다.
 
 - `서버 로컬 폴더`: 파일을 서버의 현재 저장 루트 아래 하위 폴더로 복사합니다. 서버 저장 루트는 기본적으로 `EXPORT_ROOT_DIR`이며, 관리자 화면에서 바꿀 수 있습니다.
-- `MinIO/lakeFS 오브젝트 스토리지`: S3 호환 엔드포인트로 파일을 업로드합니다. `OBJECT_STORAGE_*` 환경변수가 설정되어 있을 때 선택할 수 있습니다. MinIO는 일반 S3 호환 버킷으로, lakeFS는 S3 Gateway를 통해 repository/branch 정책에 맞는 bucket/prefix로 관리합니다.
+- `로컬 MinIO/lakeFS`: 로컬 서버 또는 사설망의 S3 호환 엔드포인트로 파일을 업로드합니다. `scripts/start-local-stack.ps1` 또는 `scripts/start-local-stack.sh`를 실행하면 앱, MinIO, lakeFS가 한 번에 구동됩니다. 기본 Compose 구성은 MinIO를 `http://localhost:9000`, 콘솔을 `http://localhost:9001`로 띄우고 `medical-images` 버킷을 자동 생성합니다. lakeFS는 `http://localhost:8001`로 함께 실행되며, S3 Gateway를 쓰려면 `OBJECT_STORAGE_ENDPOINT_URL=http://lakefs:8000`, `OBJECT_STORAGE_BUCKET=<repository>`, `OBJECT_STORAGE_PREFIX=<branch>/exports` 형태로 연결합니다.
 
 안전 규칙:
 
@@ -173,7 +173,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 
 - 스캔 진행 상태
 - 활성 이미지 수
-- 누락 레코드 수
+- 기존 누락 레코드 수
 - 전체 레코드 수
 - 마지막 스캔 시작/종료 시각
 - 마지막 스캔 결과
@@ -188,7 +188,7 @@ curl -X POST http://localhost:8000/api/admin/rescan
 
 관리자 화면에서 `수동 재스캔`을 누르면 백그라운드 스캔이 시작됩니다. 이 작업은 `AUTH_USERNAME`으로 설정된 관리자 계정만 실행할 수 있으며, 스캔 중에도 탐색 화면은 계속 사용할 수 있습니다.
 
-관리자 화면의 `이미지 루트 경로`에서 현재 서버가 탐색하는 루트 디렉터리를 확인하고 변경할 수 있습니다. 변경한 경로는 SQLite DB의 런타임 설정으로 저장되어 백엔드 재시작 후에도 유지됩니다. 경로를 변경하면 기존 탐색 결과는 안전하게 누락 처리되고, 새 경로에 대해 백그라운드 재스캔이 요청됩니다.
+관리자 화면의 `이미지 루트 경로`에서 현재 서버가 탐색하는 루트 디렉터리를 확인하고 변경할 수 있습니다. 변경한 경로는 SQLite DB의 런타임 설정으로 저장되어 백엔드 재시작 후에도 유지됩니다. 경로를 변경하면 기존 탐색 결과는 DB에서 삭제되고, 새 경로에 대해 백그라운드 재스캔이 요청됩니다.
 
 루트 경로 변경 시 주의사항:
 

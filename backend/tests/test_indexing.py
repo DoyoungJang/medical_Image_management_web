@@ -74,16 +74,16 @@ def test_incremental_reindex_updates_when_metadata_changes_but_stat_is_same(scan
         assert metadata_value == "5CV"
 
 
-def test_missing_file_is_marked_missing(scanned_client, test_paths: dict[str, Path]) -> None:
+def test_missing_file_is_removed_from_database(scanned_client, test_paths: dict[str, Path]) -> None:
     container = scanned_client.app.state.container
     (test_paths["png_root"] / "nested" / "deeper" / "deep.png").unlink()
 
-    container.index_service.scan_now(reason="missing")
+    result = container.index_service.scan_now(reason="missing")
 
     with container.session_factory() as session:
-        image = session.execute(select(Image).where(Image.relative_path == "nested/deeper/deep.png")).scalar_one()
-        assert image.missing_at is not None
-        assert image.status == "missing"
+        image = session.execute(select(Image).where(Image.relative_path == "nested/deeper/deep.png")).scalar_one_or_none()
+        assert image is None
+        assert result.missing_marked == 1
 
 
 def test_scan_skips_unreadable_directory_without_crashing(scanned_client, test_paths: dict[str, Path], monkeypatch) -> None:

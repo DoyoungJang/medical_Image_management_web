@@ -198,6 +198,10 @@ select:focus {
   margin-top: 1.5rem;
 }
 
+.auth-tabs {
+  margin-top: 1.2rem;
+}
+
 .auth-form label,
 .search-grid label {
   display: grid;
@@ -259,6 +263,27 @@ select:focus {
 
 .global-error {
   margin-bottom: 1rem;
+}
+
+.account-panel {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) repeat(3, minmax(150px, 1fr)) auto;
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.account-panel label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.account-panel .success-inline,
+.account-panel .error-box {
+  grid-column: 1 / -1;
 }
 
 .app-layout {
@@ -1287,6 +1312,7 @@ select:focus {
 
   .search-grid,
   .export-panel,
+  .account-panel,
   .metadata-filter-row,
   .info-grid,
   .stat-grid,
@@ -1321,6 +1347,7 @@ select:focus {
   .admin-grid,
   .detail-facts,
   .tracked-metadata-detail-grid,
+  .account-panel,
   .tracked-metadata-form,
   .root-path-form {
     grid-template-columns: minmax(0, 1fr);

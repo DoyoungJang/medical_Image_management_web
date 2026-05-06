@@ -10,6 +10,7 @@ import { useDebouncedValue } from "./hooks/useDebouncedValue";
 import type {
   AdminImageRootResponse,
   AdminExportRootResponse,
+  AdminSignupCodeResponse,
   ExportStorageBackend,
   ExportStructureMode,
   ImageDetail,
@@ -26,9 +27,11 @@ import type {
 } from "./types/api";
 import {
   addTrackedMetadataKey,
+  changePassword,
   exportFilteredImages,
   fetchAdminExportRoot,
   fetchAdminImageRoot,
+  fetchAdminSignupCode,
   fetchFacets,
   fetchImageDetail,
   fetchImages,
@@ -40,6 +43,7 @@ import {
   fetchTrackedMetadataKeys,
   login,
   logout,
+  register,
   removeTrackedMetadataKey,
   rescanImage,
   triggerFolderRescan,
@@ -47,6 +51,7 @@ import {
   imageFileUrl,
   updateAdminExportRoot,
   updateAdminImageRoot,
+  updateAdminSignupCode,
 } from "./utils/api";
 import { SORT_LABELS } from "./utils/labels";
 
@@ -163,6 +168,11 @@ export default function App() {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
+  const [accountPanelOpen, setAccountPanelOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>(viewFromPath);
   const [treeRailExpanded, setTreeRailExpanded] = useState(false);
@@ -191,11 +201,13 @@ export default function App() {
   const [indexStatus, setIndexStatus] = useState<IndexStatusResponse | null>(null);
   const [imageRootConfig, setImageRootConfig] = useState<AdminImageRootResponse | null>(null);
   const [exportRootConfig, setExportRootConfig] = useState<AdminExportRootResponse | null>(null);
+  const [signupCodeConfig, setSignupCodeConfig] = useState<AdminSignupCodeResponse | null>(null);
   const [adminLoading, setAdminLoading] = useState(false);
   const [rescanning, setRescanning] = useState(false);
   const [folderRescanning, setFolderRescanning] = useState(false);
   const [rootUpdating, setRootUpdating] = useState(false);
   const [exportRootUpdating, setExportRootUpdating] = useState(false);
+  const [signupCodeUpdating, setSignupCodeUpdating] = useState(false);
   const [imageRescanning, setImageRescanning] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportDir, setExportDir] = useState("");
@@ -310,9 +322,14 @@ export default function App() {
         setFacets(facetsResponse);
         setIndexStatus(indexStatusResponse);
         if (session?.is_admin === true) {
-          const [rootResponse, exportRootResponse] = await Promise.all([fetchAdminImageRoot(), fetchAdminExportRoot()]);
+          const [rootResponse, exportRootResponse, signupCodeResponse] = await Promise.all([
+            fetchAdminImageRoot(),
+            fetchAdminExportRoot(),
+            fetchAdminSignupCode(),
+          ]);
           setImageRootConfig(rootResponse);
           setExportRootConfig(exportRootResponse);
+          setSignupCodeConfig(signupCodeResponse);
         }
       } catch (sidebarError) {
         setError(sidebarError instanceof Error ? sidebarError.message : "관리자 정보를 불러오지 못했습니다.");
@@ -427,12 +444,48 @@ export default function App() {
     }
   };
 
+  const handleRegister = async (username: string, password: string, signupCode: string) => {
+    setAuthLoading(true);
+    setError("");
+    try {
+      const sessionResponse = await register(username, password, signupCode);
+      setSession(sessionResponse);
+    } catch (registerError) {
+      setError(registerError instanceof Error ? registerError.message : "회원가입에 실패했습니다.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordMessage("");
+    setPasswordError("");
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("새 비밀번호가 서로 일치하지 않습니다.");
+      return;
+    }
+    setPasswordSaving(true);
+    try {
+      const sessionResponse = await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      setSession(sessionResponse);
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPasswordMessage("비밀번호를 변경했습니다.");
+    } catch (changeError) {
+      setPasswordError(changeError instanceof Error ? changeError.message : "비밀번호 변경에 실패했습니다.");
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     setSession({ authenticated: false, is_admin: false });
     setSelectedImageId(null);
     setImageRootConfig(null);
     setExportRootConfig(null);
+    setSignupCodeConfig(null);
+    setAccountPanelOpen(false);
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     navigate("browser");
   };
 
@@ -708,6 +761,21 @@ export default function App() {
     }
   };
 
+  const handleUpdateSignupCode = async (signupCode: string) => {
+    setSignupCodeUpdating(true);
+    setError("");
+    try {
+      const response = await updateAdminSignupCode(signupCode);
+      setSignupCodeConfig(response);
+      return response;
+    } catch (codeError) {
+      setError(codeError instanceof Error ? codeError.message : "가입 코드 변경에 실패했습니다.");
+      throw codeError;
+    } finally {
+      setSignupCodeUpdating(false);
+    }
+  };
+
   const refreshCurrentImages = async () => {
     const params = buildSearchParams(filters);
     const imageResponse = await fetchImages(params);
@@ -750,7 +818,7 @@ export default function App() {
   }
 
   if (config.auth_enabled && !session?.authenticated) {
-    return <AuthGate loading={authLoading} error={error} onLogin={handleLogin} />;
+    return <AuthGate loading={authLoading} error={error} onLogin={handleLogin} onRegister={handleRegister} />;
   }
 
   return (
@@ -773,6 +841,9 @@ export default function App() {
             ) : null}
           </div>
           <span className="chip">현재 폴더: {selectedPath || "루트"}</span>
+          <button className="secondary" onClick={() => setAccountPanelOpen((current) => !current)}>
+            비밀번호 변경
+          </button>
           <button className="secondary" onClick={() => void handleLogout()}>
             로그아웃
           </button>
@@ -780,6 +851,55 @@ export default function App() {
       </header>
 
       {error ? <div className="global-error">{error}</div> : null}
+
+      {accountPanelOpen ? (
+        <section className="panel account-panel">
+          <div>
+            <strong>{session?.username ?? "사용자"}</strong>
+            <p className="muted">현재 로그인한 계정의 비밀번호를 변경합니다.</p>
+          </div>
+          <label>
+            현재 비밀번호
+            <input
+              type="password"
+              value={passwordForm.currentPassword}
+              autoComplete="current-password"
+              onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))}
+            />
+          </label>
+          <label>
+            새 비밀번호
+            <input
+              type="password"
+              value={passwordForm.newPassword}
+              autoComplete="new-password"
+              onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))}
+            />
+          </label>
+          <label>
+            새 비밀번호 확인
+            <input
+              type="password"
+              value={passwordForm.confirmPassword}
+              autoComplete="new-password"
+              onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))}
+            />
+          </label>
+          <button
+            disabled={
+              passwordSaving ||
+              !passwordForm.currentPassword ||
+              !passwordForm.newPassword ||
+              !passwordForm.confirmPassword
+            }
+            onClick={() => void handleChangePassword()}
+          >
+            {passwordSaving ? "변경 중" : "변경"}
+          </button>
+          {passwordMessage ? <p className="success-inline">{passwordMessage}</p> : null}
+          {passwordError ? <div className="error-box">{passwordError}</div> : null}
+        </section>
+      ) : null}
 
       {viewMode === "browser" || !isAdmin ? (
         <div className={`app-layout ${treeRailExpanded ? "tree-expanded" : ""}`}>
@@ -925,7 +1045,7 @@ export default function App() {
                 >
                   <option value="local">서버 로컬 폴더</option>
                   <option value="object" disabled={!config.object_storage_configured}>
-                    MinIO/lakeFS 오브젝트 스토리지
+                    로컬 MinIO/lakeFS
                   </option>
                 </select>
               </label>
@@ -934,7 +1054,7 @@ export default function App() {
                   {exporting ? "저장 중" : "내 PC 폴더 선택 저장"}
                 </button>
                 <button className="secondary" disabled={exporting || !exportDir.trim()} onClick={() => void handleExportFiltered()}>
-                  {exportStorageBackend === "object" ? "MinIO/lakeFS에 저장" : "서버에 저장"}
+                  {exportStorageBackend === "object" ? "로컬 MinIO/lakeFS에 저장" : "서버에 저장"}
                 </button>
               </div>
               {exportMessage ? <p className="success-inline">{exportMessage}</p> : null}
@@ -977,11 +1097,14 @@ export default function App() {
           trackedMetadataKeys={trackedMetadataKeys}
           imageRootConfig={imageRootConfig}
           exportRootConfig={exportRootConfig}
+          signupCodeConfig={signupCodeConfig}
           rootUpdating={rootUpdating}
           exportRootUpdating={exportRootUpdating}
+          signupCodeUpdating={signupCodeUpdating}
           onRescan={handleRescan}
           onUpdateImageRoot={handleUpdateImageRoot}
           onUpdateExportRoot={handleUpdateExportRoot}
+          onUpdateSignupCode={handleUpdateSignupCode}
           onAddTrackedMetadataKey={handleAddTrackedMetadataKey}
           onRemoveTrackedMetadataKey={handleRemoveTrackedMetadataKey}
         />
