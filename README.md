@@ -6,7 +6,69 @@
 
 ## 빠른 시작
 
-가장 쉬운 방법은 로컬 Docker 스택을 한 번에 띄우는 것입니다. 앱, 백엔드, MinIO, lakeFS가 함께 실행됩니다.
+Docker 없이 개발 서버로 먼저 실행해 보고 싶다면 venv를 만들고 백엔드와 프론트엔드를 각각 띄우면 됩니다.
+
+Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+```
+
+백엔드 실행:
+
+```powershell
+cd backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+새 PowerShell을 열어 프론트엔드 실행:
+
+```powershell
+cd frontend
+npm install
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+개발 서버 접속 주소:
+
+```text
+http://localhost:5173
+```
+
+Ubuntu/macOS:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+```
+
+백엔드 실행:
+
+```bash
+cd backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+새 터미널을 열어 프론트엔드 실행:
+
+```bash
+cd frontend
+npm install
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+개발 서버 접속 주소:
+
+```text
+http://localhost:5173
+```
+
+MinIO와 lakeFS까지 포함해서 한 번에 실행하고 싶다면 로컬 Docker 스택을 사용합니다. 앱, 백엔드, MinIO, lakeFS가 함께 실행됩니다.
 
 Windows PowerShell:
 
